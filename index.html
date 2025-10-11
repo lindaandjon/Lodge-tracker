@@ -388,11 +388,12 @@
                                     
                                     if (loadedDate < currentDate) {
                                         const confirmLoad = confirm(
-                                            '⚠️ WARNING: The file you selected is OLDER than your current data.\n\n' +
-                                            `File date: ${new Date(data.savedDate).toLocaleString()}\n` +
-                                            `Current data: ${new Date(currentDate).toLocaleString()}\n\n' +
-                                            'Loading this file will OVERWRITE your newer data. Continue?'
-                                        );
+										`⚠️ WARNING: The file you selected is OLDER than your current data.\n\n` +
+										`File date: ${new Date(data.savedDate).toLocaleString()}\n` +
+										`Current data: ${new Date(currentDate).toLocaleString()}\n\n` +
+										`Loading this file will OVERWRITE your newer data. Continue?`
+										);
+
                                         if (!confirmLoad) return;
                                     }
                                 }
