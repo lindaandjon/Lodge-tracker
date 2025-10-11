@@ -419,9 +419,9 @@
             const formatTime = (ms) => {
                 const minutes = Math.floor(ms / 60000);
                 const seconds = Math.floor((ms % 60000) / 1000);
-			  return minutes + ':' + seconds.toString().padStart(2, '0');
+                return `${minutes}:${seconds.toString().padStart(2, '0')}`;
             };
-			if (!isLoaded) {
+if (!isLoaded) {
                 return (
                     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center p-4">
                         <div className="bg-white rounded-lg shadow-xl p-8 max-w-md w-full text-center">
@@ -566,10 +566,7 @@
                                         const roomSnags = isSelected ? getRoomSnags(room.id) : [];
                                         const pendingSnags = roomSnags.filter(s => !s.completed);
                                         const completedSnags = roomSnags.filter(s => s.completed);
-                                        const selectedClass = isSelected
-											? 'bg-blue-100 border-2 border-blue-500'
-											: 'bg-slate-50 hover:bg-slate-100 border-2 border-transparent';
-
+                                        
                                         return (
                                             <div key={room.id}>
                                                 <div
@@ -578,8 +575,11 @@
                                                     onDragOver={handleDragOver}
                                                     onDrop={(e) => handleDrop(e, room)}
                                                     onDragEnd={handleDragEnd}
-                                                    className={`p-3 rounded-lg cursor-move transition ${selectedClass} ${draggedRoom?.id === room.id ? 'opacity-50' : ''}`}
-
+                                                    className={`p-3 rounded-lg cursor-move transition ${
+                                                        isSelected
+                                                            ? 'bg-blue-100 border-2 border-blue-500'
+                                                            : 'bg-slate-50 hover:bg-slate-100 border-2 border-transparent'
+                                                    } ${draggedRoom?.id === room.id ? 'opacity-50' : ''}`}
                                                     onClick={() => setSelectedRoom(room)}
                                                 >
                                                     <div className="flex justify-between items-center gap-2">
