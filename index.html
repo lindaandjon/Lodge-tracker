@@ -566,7 +566,10 @@
                                         const roomSnags = isSelected ? getRoomSnags(room.id) : [];
                                         const pendingSnags = roomSnags.filter(s => !s.completed);
                                         const completedSnags = roomSnags.filter(s => s.completed);
-                                        
+                                        const selectedClass = isSelected
+											? 'bg-blue-100 border-2 border-blue-500'
+											: 'bg-slate-50 hover:bg-slate-100 border-2 border-transparent';
+
                                         return (
                                             <div key={room.id}>
                                                 <div
@@ -575,11 +578,8 @@
                                                     onDragOver={handleDragOver}
                                                     onDrop={(e) => handleDrop(e, room)}
                                                     onDragEnd={handleDragEnd}
-                                                    className={`p-3 rounded-lg cursor-move transition ${
-                                                        isSelected
-                                                            ? 'bg-blue-100 border-2 border-blue-500'
-                                                            : 'bg-slate-50 hover:bg-slate-100 border-2 border-transparent'
-                                                    } ${draggedRoom?.id === room.id ? 'opacity-50' : ''}`}
+                                                    className={`p-3 rounded-lg cursor-move transition ${selectedClass} ${draggedRoom?.id === room.id ? 'opacity-50' : ''}`}
+
                                                     onClick={() => setSelectedRoom(room)}
                                                 >
                                                     <div className="flex justify-between items-center gap-2">
