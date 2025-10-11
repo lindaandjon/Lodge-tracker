@@ -355,6 +355,20 @@
             };
 
             const saveData = () => {
+                // Request notification permission if not already granted
+                if ('Notification' in window && Notification.permission === 'default') {
+                    Notification.requestPermission();
+                }
+
+                // Show download starting notification
+                if ('Notification' in window && Notification.permission === 'granted') {
+                    new Notification('Lodge Tracker', {
+                        body: 'Saving backup file...',
+                        icon: 'icon-192.png',
+                        tag: 'lodge-download'
+                    });
+                }
+
                 const data = {
                     rooms,
                     snags,
@@ -372,6 +386,17 @@
                 setLastSaveTime(now);
                 setLastSavedData({ rooms, snags });
                 setHasUnsavedChanges(false);
+
+                // Show download complete notification after a short delay
+                setTimeout(() => {
+                    if ('Notification' in window && Notification.permission === 'granted') {
+                        new Notification('Lodge Tracker', {
+                            body: '✅ Backup saved successfully!',
+                            icon: 'icon-192.png',
+                            tag: 'lodge-download'
+                        });
+                    }
+                }, 500);
             };
 
             const loadData = (e) => {
@@ -422,7 +447,8 @@
                 const seconds = Math.floor((ms % 60000) / 1000);
                 return `${minutes}:${seconds.toString().padStart(2, '0')}`;
             };
-if (!isLoaded) {
+
+            if (!isLoaded) {
                 return (
                     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center p-4">
                         <div className="bg-white rounded-lg shadow-xl p-8 max-w-md w-full text-center">
