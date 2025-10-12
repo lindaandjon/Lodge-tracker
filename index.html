@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Lodge Build Tracker</title>
     
-    <!-- PWA Support -->
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#2563eb">
     <link rel="apple-touch-icon" href="icon-192.png">
@@ -20,108 +19,91 @@
     <div id="root"></div>
     
     <script type="text/babel">
-        const { useState, useEffect, useRef } = React;
+        const { useState, useEffect } = React;
         
         const CLIENT_ID = '143126622947-aua7tmjl6rf5fq4i4ggijrvvbe8ut9ck.apps.googleusercontent.com';
         const SCOPES = 'https://www.googleapis.com/auth/drive.file';
         const DISCOVERY_DOCS = ['https://www.googleapis.com/discovery/v1/apis/drive/v3/rest'];
         
+        // Icons
         const Plus = ({ size = 24 }) => (
-            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <line x1="12" y1="5" x2="12" y2="19"></line>
                 <line x1="5" y1="12" x2="19" y2="12"></line>
             </svg>
         );
         
         const Trash2 = ({ size = 24 }) => (
-            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <polyline points="3 6 5 6 21 6"></polyline>
                 <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-                <line x1="10" y1="11" x2="10" y2="17"></line>
-                <line x1="14" y1="11" x2="14" y2="17"></line>
             </svg>
         );
         
         const Check = ({ size = 24 }) => (
-            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <polyline points="20 6 9 17 4 12"></polyline>
             </svg>
         );
         
         const X = ({ size = 24 }) => (
-            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <line x1="18" y1="6" x2="6" y2="18"></line>
                 <line x1="6" y1="6" x2="18" y2="18"></line>
             </svg>
         );
         
         const Edit = ({ size = 24 }) => (
-            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
                 <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
             </svg>
         );
         
         const Download = ({ size = 24 }) => (
-            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
                 <polyline points="7 10 12 15 17 10"></polyline>
                 <line x1="12" y1="15" x2="12" y2="3"></line>
             </svg>
         );
         
-        const Upload = ({ size = 24 }) => (
-            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                <polyline points="17 8 12 3 7 8"></polyline>
-                <line x1="12" y1="3" x2="12" y2="15"></line>
-            </svg>
-        );
-        
         const Camera = ({ size = 24 }) => (
-            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
                 <circle cx="12" cy="13" r="4"></circle>
             </svg>
         );
-        
-        const AlertCircle = ({ size = 24 }) => (
-            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="12" cy="12" r="10"></circle>
-                <line x1="12" y1="8" x2="12" y2="12"></line>
-                <line x1="12" y1="16" x2="12.01" y2="16"></line>
-            </svg>
-        );
 
         const Home = ({ size = 24 }) => (
-            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
                 <polyline points="9 22 9 12 15 12 15 22"></polyline>
             </svg>
         );
 
         const Cloud = ({ size = 24 }) => (
-            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"></path>
             </svg>
         );
 
         const CloudOff = ({ size = 24 }) => (
-            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M22.61 16.95A5 5 0 0 0 18 10h-1.26a8 8 0 0 0-7.05-6M5 5a8 8 0 0 0 4 15h9a5 5 0 0 0 1.7-.3"></path>
                 <line x1="1" y1="1" x2="23" y2="23"></line>
             </svg>
         );
 
         const Lock = ({ size = 24 }) => (
-            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
                 <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
             </svg>
         );
 
         const Unlock = ({ size = 24 }) => (
-            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
                 <path d="M7 11V7a5 5 0 0 1 9.9-1"></path>
             </svg>
@@ -149,7 +131,6 @@
             const [driveFileId, setDriveFileId] = useState(null);
             const [isSyncing, setIsSyncing] = useState(false);
             const [lastSyncTime, setLastSyncTime] = useState(null);
-            const [syncQueue, setSyncQueue] = useState([]);
             const [gapiReady, setGapiReady] = useState(false);
 
             // Initialize Google API
@@ -181,19 +162,13 @@
                 if (window.gapi) {
                     initClient();
                 } else {
-                    console.error('Google API not loaded');
                     loadFromLocalStorage();
                 }
             }, []);
 
             // Monitor online/offline status
             useEffect(() => {
-                const handleOnline = () => {
-                    setIsOnline(true);
-                    if (isSignedIn && syncQueue.length > 0) {
-                        processSyncQueue();
-                    }
-                };
+                const handleOnline = () => setIsOnline(true);
                 const handleOffline = () => setIsOnline(false);
 
                 window.addEventListener('online', handleOnline);
@@ -203,7 +178,7 @@
                     window.removeEventListener('online', handleOnline);
                     window.removeEventListener('offline', handleOffline);
                 };
-            }, [isSignedIn, syncQueue]);
+            }, []);
 
             // Load from localStorage
             const loadFromLocalStorage = () => {
@@ -246,7 +221,6 @@
             // Find or create file in Drive
             const findOrCreateFile = async () => {
                 try {
-                    // Search for existing file
                     const response = await window.gapi.client.drive.files.list({
                         q: "name='lodge-backup.json' and trashed=false",
                         spaces: 'drive',
@@ -257,14 +231,13 @@
                         return response.result.files[0].id;
                     }
 
-                    // Create new file
                     const fileMetadata = {
                         name: 'lodge-backup.json',
                         mimeType: 'application/json'
                     };
                     const fileContent = JSON.stringify({ rooms: [], snags: [], savedDate: new Date().toISOString() });
-                    const file = new Blob([fileContent], { type: 'application/json' });
                     
+                    const file = new Blob([fileContent], { type: 'application/json' });
                     const formData = new FormData();
                     formData.append('metadata', new Blob([JSON.stringify(fileMetadata)], { type: 'application/json' }));
                     formData.append('file', file);
@@ -320,10 +293,7 @@
 
             // Save to Drive
             const saveToDrive = async () => {
-                if (!isSignedIn || !isOnline || !gapiReady) {
-                    addToSyncQueue();
-                    return;
-                }
+                if (!isSignedIn || !isOnline || !gapiReady) return;
 
                 setIsSyncing(true);
                 try {
@@ -343,7 +313,7 @@
                             savedDate: new Date().toISOString()
                         };
 
-                        const response = await window.gapi.client.request({
+                        await window.gapi.client.request({
                             path: '/upload/drive/v3/files/' + fileId,
                             method: 'PATCH',
                             params: { uploadType: 'media' },
@@ -351,7 +321,6 @@
                         });
 
                         setLastSyncTime(Date.now());
-                        setSyncQueue([]);
                         
                         if ('Notification' in window && Notification.permission === 'granted') {
                             new Notification('Lodge Tracker', {
@@ -362,49 +331,32 @@
                     }
                 } catch (error) {
                     console.error('Error saving to Drive:', error);
-                    addToSyncQueue();
                 } finally {
                     setIsSyncing(false);
                 }
             };
 
-            // Add to sync queue
-            const addToSyncQueue = () => {
-                setSyncQueue(prev => [...prev, { rooms, snags, timestamp: Date.now() }]);
-            };
-
-            // Process sync queue
-            const processSyncQueue = async () => {
-                if (syncQueue.length > 0 && isOnline && isSignedIn) {
-                    await saveToDrive();
-                }
-            };
-
-            // Auto-save to Drive when data changes (if online)
+            // Auto-save to Drive when data changes
             useEffect(() => {
                 if (isSignedIn && isOnline && (rooms.length > 0 || snags.length > 0)) {
                     const timer = setTimeout(() => {
                         saveToDrive();
-                    }, 2000); // Debounce 2 seconds
+                    }, 2000);
                     return () => clearTimeout(timer);
                 }
             }, [rooms, snags, isSignedIn, isOnline]);
 
             // Check if editing is allowed
             const canEdit = () => {
-                if (!isSignedIn) return true; // Local mode
-                if (isOnline) return true; // Online mode
-                return allowOfflineEdit; // Offline with override
+                if (!isSignedIn) return true;
+                if (isOnline) return true;
+                return allowOfflineEdit;
             };
 
             const addRoom = () => {
                 if (!canEdit()) return;
                 if (newRoomName.trim()) {
-                    const newRoom = {
-                        id: Date.now(),
-                        name: newRoomName.trim(),
-                        thumbnail: null
-                    };
+                    const newRoom = { id: Date.now(), name: newRoomName.trim(), thumbnail: null };
                     setRooms([...rooms, newRoom]);
                     setNewRoomName('');
                     setShowAddRoom(false);
@@ -412,23 +364,17 @@
             };
 
             const addRoomThumbnail = (roomId, file) => {
-                if (!canEdit()) return;
-                if (file && file.type.startsWith('image/')) {
-                    const reader = new FileReader();
-                    reader.onload = (e) => {
-                        setRooms(rooms.map(r => 
-                            r.id === roomId ? { ...r, thumbnail: e.target.result } : r
-                        ));
-                    };
-                    reader.readAsDataURL(file);
-                }
+                if (!canEdit() || !file || !file.type.startsWith('image/')) return;
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    setRooms(rooms.map(r => r.id === roomId ? { ...r, thumbnail: e.target.result } : r));
+                };
+                reader.readAsDataURL(file);
             };
 
             const deleteRoomThumbnail = (roomId) => {
                 if (!canEdit()) return;
-                setRooms(rooms.map(r => 
-                    r.id === roomId ? { ...r, thumbnail: null } : r
-                ));
+                setRooms(rooms.map(r => r.id === roomId ? { ...r, thumbnail: null } : r));
             };
 
             const deleteRoom = (roomId) => {
@@ -439,27 +385,23 @@
             };
 
             const addSnag = () => {
-                if (!canEdit()) return;
-                if (newSnagText.trim() && selectedRoom) {
-                    const newSnag = {
-                        id: Date.now(),
-                        roomId: selectedRoom.id,
-                        text: newSnagText.trim(),
-                        completed: false,
-                        createdAt: new Date().toISOString(),
-                        photos: [],
-                        links: []
-                    };
-                    setSnags([...snags, newSnag]);
-                    setNewSnagText('');
-                }
+                if (!canEdit() || !newSnagText.trim() || !selectedRoom) return;
+                const newSnag = {
+                    id: Date.now(),
+                    roomId: selectedRoom.id,
+                    text: newSnagText.trim(),
+                    completed: false,
+                    createdAt: new Date().toISOString(),
+                    photos: [],
+                    links: []
+                };
+                setSnags([...snags, newSnag]);
+                setNewSnagText('');
             };
 
             const toggleSnag = (snagId) => {
                 if (!canEdit()) return;
-                setSnags(snags.map(s => 
-                    s.id === snagId ? { ...s, completed: !s.completed } : s
-                ));
+                setSnags(snags.map(s => s.id === snagId ? { ...s, completed: !s.completed } : s));
             };
 
             const deleteSnag = (snagId) => {
@@ -474,14 +416,10 @@
             };
 
             const saveEditSnag = (snagId) => {
-                if (!canEdit()) return;
-                if (editSnagText.trim()) {
-                    setSnags(snags.map(s => 
-                        s.id === snagId ? { ...s, text: editSnagText.trim() } : s
-                    ));
-                    setEditingSnag(null);
-                    setEditSnagText('');
-                }
+                if (!canEdit() || !editSnagText.trim()) return;
+                setSnags(snags.map(s => s.id === snagId ? { ...s, text: editSnagText.trim() } : s));
+                setEditingSnag(null);
+                setEditSnagText('');
             };
 
             const cancelEditSnag = () => {
@@ -490,72 +428,44 @@
             };
 
             const addPhoto = (snagId, file) => {
-                if (!canEdit()) return;
-                if (file && file.type.startsWith('image/')) {
-                    const reader = new FileReader();
-                    reader.onload = (e) => {
-                        const photoData = {
-                            id: Date.now(),
-                            data: e.target.result,
-                            name: file.name,
-                            addedAt: new Date().toISOString()
-                        };
-                        setSnags(snags.map(s => 
-                            s.id === snagId 
-                                ? { ...s, photos: [...(s.photos || []), photoData] }
-                                : s
-                        ));
+                if (!canEdit() || !file || !file.type.startsWith('image/')) return;
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const photoData = {
+                        id: Date.now(),
+                        data: e.target.result,
+                        name: file.name,
+                        addedAt: new Date().toISOString()
                     };
-                    reader.readAsDataURL(file);
-                }
+                    setSnags(snags.map(s => s.id === snagId ? { ...s, photos: [...(s.photos || []), photoData] } : s));
+                };
+                reader.readAsDataURL(file);
             };
 
             const deletePhoto = (snagId, photoId) => {
                 if (!canEdit()) return;
-                setSnags(snags.map(s => 
-                    s.id === snagId 
-                        ? { ...s, photos: s.photos.filter(p => p.id !== photoId) }
-                        : s
-                ));
+                setSnags(snags.map(s => s.id === snagId ? { ...s, photos: s.photos.filter(p => p.id !== photoId) } : s));
             };
 
             const addLink = (snagId) => {
-                if (!canEdit()) return;
-                if (linkText.trim() && linkUrl.trim()) {
-                    let url = linkUrl.trim();
-                    if (!url.startsWith('http://') && !url.startsWith('https://')) {
-                        url = 'https://' + url;
-                    }
-                    
-                    const newLink = {
-                        id: Date.now(),
-                        text: linkText.trim(),
-                        url: url
-                    };
-                    
-                    setSnags(snags.map(s => 
-                        s.id === snagId 
-                            ? { ...s, links: [...(s.links || []), newLink] }
-                            : s
-                    ));
-                    setEditingLink(null);
-                    setLinkText('');
-                    setLinkUrl('');
+                if (!canEdit() || !linkText.trim() || !linkUrl.trim()) return;
+                let url = linkUrl.trim();
+                if (!url.startsWith('http://') && !url.startsWith('https://')) {
+                    url = 'https://' + url;
                 }
+                const newLink = { id: Date.now(), text: linkText.trim(), url: url };
+                setSnags(snags.map(s => s.id === snagId ? { ...s, links: [...(s.links || []), newLink] } : s));
+                setEditingLink(null);
+                setLinkText('');
+                setLinkUrl('');
             };
 
             const deleteLink = (snagId, linkId) => {
                 if (!canEdit()) return;
-                setSnags(snags.map(s => 
-                    s.id === snagId 
-                        ? { ...s, links: (s.links || []).filter(l => l.id !== linkId) }
-                        : s
-                ));
+                setSnags(snags.map(s => s.id === snagId ? { ...s, links: (s.links || []).filter(l => l.id !== linkId) } : s));
             };
 
-            const getRoomSnags = (roomId) => {
-                return snags.filter(s => s.roomId === roomId);
-            };
+            const getRoomSnags = (roomId) => snags.filter(s => s.roomId === roomId);
 
             const handleDragStart = (e, room) => {
                 if (!canEdit()) return;
@@ -575,26 +485,17 @@
 
                 const draggedIndex = rooms.findIndex(r => r.id === draggedRoom.id);
                 const targetIndex = rooms.findIndex(r => r.id === targetRoom.id);
-
                 const newRooms = [...rooms];
                 newRooms.splice(draggedIndex, 1);
                 newRooms.splice(targetIndex, 0, draggedRoom);
-
                 setRooms(newRooms);
                 setDraggedRoom(null);
             };
 
-            const handleDragEnd = () => {
-                setDraggedRoom(null);
-            };
+            const handleDragEnd = () => setDraggedRoom(null);
 
-            // Manual backup download
             const downloadBackup = () => {
-                const data = {
-                    rooms,
-                    snags,
-                    savedDate: new Date().toISOString()
-                };
+                const data = { rooms, snags, savedDate: new Date().toISOString() };
                 const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement('a');
@@ -604,22 +505,13 @@
                 a.click();
                 document.body.removeChild(a);
                 URL.revokeObjectURL(url);
-
-                if ('Notification' in window && Notification.permission === 'granted') {
-                    new Notification('Lodge Tracker', {
-                        body: '✅ Backup downloaded',
-                        icon: 'icon-192.png'
-                    });
-                }
             };
 
             const formatTime = (timestamp) => {
                 if (!timestamp) return '';
-                const date = new Date(timestamp);
-                return date.toLocaleTimeString();
+                return new Date(timestamp).toLocaleTimeString();
             };
 
-            // Status indicator
             const getStatusIndicator = () => {
                 if (!isSignedIn) {
                     return (
@@ -659,7 +551,7 @@
                 return (
                     <div className="flex items-center gap-2 text-sm text-green-600">
                         <Cloud size={16} />
-                        <span>Online{lastSyncTime && ` - Synced ${formatTime(lastSyncTime)}`}</span>
+                        <span>Online{lastSyncTime && ` - ${formatTime(lastSyncTime)}`}</span>
                     </div>
                 );
             };
@@ -667,7 +559,6 @@
             return (
                 <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-4">
                     <div className="max-w-6xl mx-auto">
-                        {/* Header */}
                         <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
                             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
                                 <div>
@@ -675,9 +566,7 @@
                                         <h1 className="text-3xl font-bold text-slate-800">Lodge Build Tracker</h1>
                                         <span className="text-sm text-slate-400">v2.0</span>
                                     </div>
-                                    <div className="mt-2">
-                                        {getStatusIndicator()}
-                                    </div>
+                                    <div className="mt-2">{getStatusIndicator()}</div>
                                 </div>
                                 
                                 <div className="flex flex-wrap gap-2">
@@ -685,3 +574,483 @@
                                         <button
                                             onClick={handleSignIn}
                                             disabled={!gapiReady}
+                                            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition disabled:opacity-50"
+                                        >
+                                            <Cloud size={18} />
+                                            Sign in with Google
+                                        </button>
+                                    ) : (
+                                        <>
+                                            <button
+                                                onClick={downloadBackup}
+                                                className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition"
+                                            >
+                                                <Download size={18} />
+                                                <span className="hidden sm:inline">Backup</span>
+                                            </button>
+                                            <button
+                                                onClick={handleSignOut}
+                                                className="flex items-center gap-2 px-4 py-2 bg-slate-600 text-white rounded-lg hover:bg-slate-700 transition"
+                                            >
+                                                Sign Out
+                                            </button>
+                                        </>
+                                    )}
+                                </div>
+                            </div>
+                            
+                            {isSignedIn && !isOnline && !allowOfflineEdit && (
+                                <div className="bg-orange-50 border border-orange-200 rounded-lg p-3 mb-4">
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-sm text-orange-800">
+                                            ⚠️ Offline - Viewing only. Enable editing if you're working solo.
+                                        </span>
+                                        <button
+                                            onClick={() => setAllowOfflineEdit(true)}
+                                            className="flex items-center gap-1 px-3 py-1 bg-orange-600 text-white text-sm rounded hover:bg-orange-700 transition"
+                                        >
+                                            <Unlock size={14} />
+                                            Allow Editing
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+                            
+                            {isSignedIn && !isOnline && allowOfflineEdit && (
+                                <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4">
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-sm text-red-800">
+                                            ⚠️ Offline editing enabled - Changes will sync when back online
+                                        </span>
+                                        <button
+                                            onClick={() => setAllowOfflineEdit(false)}
+                                            className="flex items-center gap-1 px-3 py-1 bg-red-600 text-white text-sm rounded hover:bg-red-700 transition"
+                                        >
+                                            <Lock size={14} />
+                                            Disable
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="grid md:grid-cols-3 gap-6">
+                            <div className="bg-white rounded-lg shadow-lg p-6">
+                                <div className="flex justify-between items-center mb-4">
+                                    <h2 className="text-xl font-bold text-slate-800">Rooms</h2>
+                                    <button
+                                        onClick={() => canEdit() && setShowAddRoom(!showAddRoom)}
+                                        disabled={!canEdit()}
+                                        className="flex items-center gap-1 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                                    >
+                                        <Home size={18} />
+                                        <Plus size={18} />
+                                    </button>
+                                </div>
+
+                                {showAddRoom && (
+                                    <div className="mb-4 flex gap-2">
+                                        <input
+                                            type="text"
+                                            value={newRoomName}
+                                            onChange={(e) => setNewRoomName(e.target.value)}
+                                            onKeyPress={(e) => e.key === 'Enter' && addRoom()}
+                                            placeholder="Room name..."
+                                            className="flex-1 px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        />
+                                        <button
+                                            onClick={addRoom}
+                                            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition"
+                                        >
+                                            Add
+                                        </button>
+                                    </div>
+                                )}
+
+                                <div className="space-y-2">
+                                    {rooms.map(room => {
+                                        const roomSnagCount = getRoomSnags(room.id).length;
+                                        const roomPendingCount = getRoomSnags(room.id).filter(s => !s.completed).length;
+                                        const isSelected = selectedRoom?.id === room.id;
+                                        const roomSnags = isSelected ? getRoomSnags(room.id) : [];
+                                        const pendingSnags = roomSnags.filter(s => !s.completed);
+                                        const completedSnags = roomSnags.filter(s => s.completed);
+                                        
+                                        return (
+                                            <div key={room.id}>
+                                                <div
+                                                    draggable={canEdit()}
+                                                    onDragStart={(e) => handleDragStart(e, room)}
+                                                    onDragOver={handleDragOver}
+                                                    onDrop={(e) => handleDrop(e, room)}
+                                                    onDragEnd={handleDragEnd}
+                                                    className={`p-3 rounded-lg cursor-pointer transition ${
+                                                        isSelected
+                                                            ? 'bg-blue-100 border-2 border-blue-500'
+                                                            : 'bg-slate-50 hover:bg-slate-100 border-2 border-transparent'
+                                                    } ${draggedRoom?.id === room.id ? 'opacity-50' : ''}`}
+                                                    onClick={() => setSelectedRoom(room)}
+                                                >
+                                                    <div className="flex justify-between items-center gap-2">
+                                                        <div className="flex items-center gap-2 flex-1">
+                                                            {room.thumbnail ? (
+                                                                <div className="relative group flex-shrink-0">
+                                                                    <img 
+                                                                        src={room.thumbnail} 
+                                                                        alt={room.name}
+                                                                        className="w-12 h-12 object-cover rounded border-2 border-slate-300"
+                                                                    />
+                                                                    {canEdit() && (
+                                                                        <button
+                                                                            onClick={(e) => {
+                                                                                e.stopPropagation();
+                                                                                deleteRoomThumbnail(room.id);
+                                                                            }}
+                                                                            className="absolute -top-1 -right-1 p-0.5 bg-red-600 text-white rounded-full opacity-0 group-hover:opacity-100 transition"
+                                                                        >
+                                                                            <X size={10} />
+                                                                        </button>
+                                                                    )}
+                                                                </div>
+                                                            ) : (
+                                                                canEdit() && (
+                                                                    <label 
+                                                                        onClick={(e) => e.stopPropagation()}
+                                                                        className="w-12 h-12 flex items-center justify-center bg-slate-200 rounded border-2 border-dashed border-slate-400 hover:bg-slate-300 cursor-pointer flex-shrink-0"
+                                                                    >
+                                                                        <Camera size={20} className="text-slate-500" />
+                                                                        <input 
+                                                                            type="file" 
+                                                                            accept="image/*"
+                                                                            onChange={(e) => e.target.files[0] && addRoomThumbnail(room.id, e.target.files[0])}
+                                                                            className="hidden" 
+                                                                        />
+                                                                    </label>
+                                                                )
+                                                            )}
+                                                            <div>
+                                                                <div className="font-semibold text-slate-800">{room.name}</div>
+                                                                <div className="text-sm text-slate-600">
+                                                                    {roomPendingCount > 0 ? (
+                                                                        <span className="text-orange-600">{roomPendingCount} pending</span>
+                                                                    ) : roomSnagCount > 0 ? (
+                                                                        <span className="text-green-600">All complete</span>
+                                                                    ) : (
+                                                                        <span className="text-slate-400">No snags</span>
+                                                                    )}
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                        {canEdit() && (
+                                                            <button
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    if (confirm(`Delete ${room.name}?`)) deleteRoom(room.id);
+                                                                }}
+                                                                className="p-1 text-red-600 hover:bg-red-100 rounded transition flex-shrink-0"
+                                                            >
+                                                                <Trash2 size={18} />
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                </div>
+
+                                                {isSelected && (
+                                                    <div className="ml-4 mt-2 space-y-2">
+                                                        {canEdit() && (
+                                                            <div className="flex gap-2">
+                                                                <input
+                                                                    type="text"
+                                                                    value={newSnagText}
+                                                                    onChange={(e) => setNewSnagText(e.target.value)}
+                                                                    onKeyPress={(e) => e.key === 'Enter' && addSnag()}
+                                                                    placeholder="Add a snag..."
+                                                                    className="flex-1 px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                                                />
+                                                                <button
+                                                                    onClick={addSnag}
+                                                                    className="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition font-semibold"
+                                                                >
+                                                                    Add
+                                                                </button>
+                                                            </div>
+                                                        )}
+
+                                                        {pendingSnags.map(snag => (
+                                                            <div key={snag.id} className="p-2 bg-orange-50 border border-orange-200 rounded-lg text-sm">
+                                                                <div className="flex items-start gap-2 mb-1">
+                                                                    <button
+                                                                        onClick={() => toggleSnag(snag.id)}
+                                                                        disabled={!canEdit()}
+                                                                        className="mt-0.5 p-1 border-2 border-slate-300 rounded hover:bg-green-100 hover:border-green-500 transition flex-shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
+                                                                    >
+                                                                        <Check size={12} className="text-transparent" />
+                                                                    </button>
+                                                                    {editingSnag === snag.id ? (
+                                                                        <div className="flex-1 flex gap-1">
+                                                                            <input
+                                                                                type="text"
+                                                                                value={editSnagText}
+                                                                                onChange={(e) => setEditSnagText(e.target.value)}
+                                                                                onKeyPress={(e) => {
+                                                                                    if (e.key === 'Enter') saveEditSnag(snag.id);
+                                                                                    if (e.key === 'Escape') cancelEditSnag();
+                                                                                }}
+                                                                                className="flex-1 px-2 py-1 text-sm border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                                                                autoFocus
+                                                                            />
+                                                                            <button
+                                                                                onClick={() => saveEditSnag(snag.id)}
+                                                                                className="p-1 bg-green-600 text-white rounded hover:bg-green-700 transition"
+                                                                            >
+                                                                                <Check size={14} />
+                                                                            </button>
+                                                                            <button
+                                                                                onClick={cancelEditSnag}
+                                                                                className="p-1 bg-slate-400 text-white rounded hover:bg-slate-500 transition"
+                                                                            >
+                                                                                <X size={14} />
+                                                                            </button>
+                                                                        </div>
+                                                                    ) : (
+                                                                        <div className="flex-1 text-slate-800">{snag.text}</div>
+                                                                    )}
+                                                                    {editingSnag !== snag.id && canEdit() && (
+                                                                        <>
+                                                                            <button
+                                                                                onClick={() => startEditSnag(snag)}
+                                                                                className="p-1 text-blue-600 hover:bg-blue-100 rounded transition flex-shrink-0"
+                                                                            >
+                                                                                <Edit size={14} />
+                                                                            </button>
+                                                                            <button
+                                                                                onClick={() => deleteSnag(snag.id)}
+                                                                                className="p-1 text-red-600 hover:bg-red-100 rounded transition flex-shrink-0"
+                                                                            >
+                                                                                <Trash2 size={14} />
+                                                                            </button>
+                                                                        </>
+                                                                    )}
+                                                                </div>
+                                                                
+                                                                {snag.photos && snag.photos.length > 0 && (
+                                                                    <div className="flex flex-wrap gap-1 mb-1 ml-6">
+                                                                        {snag.photos.map(photo => (
+                                                                            <div key={photo.id} className="relative group">
+                                                                                <img 
+                                                                                    src={photo.data} 
+                                                                                    alt="Snag photo"
+                                                                                    className="w-16 h-16 object-cover rounded border border-slate-200 cursor-pointer hover:border-blue-500 transition"
+                                                                                    onClick={() => setViewingPhoto(photo)}
+                                                                                />
+                                                                                {canEdit() && (
+                                                                                    <button
+                                                                                        onClick={() => deletePhoto(snag.id, photo.id)}
+                                                                                        className="absolute -top-1 -right-1 p-0.5 bg-red-600 text-white rounded-full opacity-0 group-hover:opacity-100 transition"
+                                                                                    >
+                                                                                        <X size={10} />
+                                                                                    </button>
+                                                                                )}
+                                                                            </div>
+                                                                        ))}
+                                                                    </div>
+                                                                )}
+                                                                
+                                                                {snag.links && snag.links.length > 0 && (
+                                                                    <div className="flex flex-wrap gap-2 mb-1 ml-6">
+                                                                        {snag.links.map(link => (
+                                                                            <div key={link.id} className="flex items-center gap-1 bg-blue-50 border border-blue-300 rounded px-2 py-1">
+                                                                                <a 
+                                                                                    href={link.url} 
+                                                                                    target="_blank" 
+                                                                                    rel="noopener noreferrer"
+                                                                                    className="text-blue-600 hover:text-blue-800 underline text-xs"
+                                                                                >
+                                                                                    {link.text}
+                                                                                </a>
+                                                                                {canEdit() && (
+                                                                                    <button
+                                                                                        onClick={() => deleteLink(snag.id, link.id)}
+                                                                                        className="text-red-600 hover:text-red-800"
+                                                                                    >
+                                                                                        <X size={12} />
+                                                                                    </button>
+                                                                                )}
+                                                                            </div>
+                                                                        ))}
+                                                                    </div>
+                                                                )}
+                                                                
+                                                                {canEdit() && (
+                                                                    <div className="ml-6 flex gap-1">
+                                                                        <label className="inline-flex items-center gap-1 px-2 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 transition cursor-pointer">
+                                                                            <Camera size={12} />
+                                                                            Photo
+                                                                            <input 
+                                                                                type="file" 
+                                                                                accept="image/*" 
+                                                                                capture="environment"
+                                                                                onChange={(e) => e.target.files[0] && addPhoto(snag.id, e.target.files[0])}
+                                                                                className="hidden" 
+                                                                            />
+                                                                        </label>
+                                                                        
+                                                                        {editingLink === snag.id ? (
+                                                                            <div className="flex gap-1 items-center">
+                                                                                <input
+                                                                                    type="text"
+                                                                                    value={linkText}
+                                                                                    onChange={(e) => setLinkText(e.target.value)}
+                                                                                    placeholder="Text..."
+                                                                                    className="px-2 py-1 text-xs border border-slate-300 rounded w-20"
+                                                                                />
+                                                                                <input
+                                                                                    type="text"
+                                                                                    value={linkUrl}
+                                                                                    onChange={(e) => setLinkUrl(e.target.value)}
+                                                                                    placeholder="URL..."
+                                                                                    className="px-2 py-1 text-xs border border-slate-300 rounded w-24"
+                                                                                />
+                                                                                <button
+                                                                                    onClick={() => addLink(snag.id)}
+                                                                                    className="px-2 py-1 bg-green-600 text-white text-xs rounded hover:bg-green-700"
+                                                                                >
+                                                                                    ✓
+                                                                                </button>
+                                                                                <button
+                                                                                    onClick={() => {
+                                                                                        setEditingLink(null);
+                                                                                        setLinkText('');
+                                                                                        setLinkUrl('');
+                                                                                    }}
+                                                                                    className="px-2 py-1 bg-slate-400 text-white text-xs rounded hover:bg-slate-500"
+                                                                                >
+                                                                                    ✕
+                                                                                </button>
+                                                                            </div>
+                                                                        ) : (
+                                                                            <button
+                                                                                onClick={() => setEditingLink(snag.id)}
+                                                                                className="inline-flex items-center gap-1 px-2 py-1 bg-purple-600 text-white text-xs rounded hover:bg-purple-700 transition"
+                                                                            >
+                                                                                🔗 Link
+                                                                            </button>
+                                                                        )}
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        ))}
+
+                                                        {completedSnags.map(snag => (
+                                                            <div key={snag.id} className="p-2 bg-green-50 border border-green-200 rounded-lg text-sm">
+                                                                <div className="flex items-start gap-2 mb-1">
+                                                                    <button
+                                                                        onClick={() => toggleSnag(snag.id)}
+                                                                        disabled={!canEdit()}
+                                                                        className="mt-0.5 p-1 bg-green-500 border-2 border-green-500 rounded hover:bg-green-600 transition flex-shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
+                                                                    >
+                                                                        <Check size={12} className="text-white" />
+                                                                    </button>
+                                                                    <div className="flex-1 text-slate-600 line-through">{snag.text}</div>
+                                                                    {canEdit() && (
+                                                                        <button
+                                                                            onClick={() => deleteSnag(snag.id)}
+                                                                            className="p-1 text-red-600 hover:bg-red-100 rounded transition flex-shrink-0"
+                                                                        >
+                                                                            <Trash2 size={14} />
+                                                                        </button>
+                                                                    )}
+                                                                </div>
+                                                                
+                                                                {snag.photos && snag.photos.length > 0 && (
+                                                                    <div className="flex flex-wrap gap-1 ml-6">
+                                                                        {snag.photos.map(photo => (
+                                                                            <img 
+                                                                                key={photo.id}
+                                                                                src={photo.data} 
+                                                                                alt="Snag photo"
+                                                                                className="w-16 h-16 object-cover rounded border border-slate-200 cursor-pointer hover:border-blue-500 transition opacity-60"
+                                                                                onClick={() => setViewingPhoto(photo)}
+                                                                            />
+                                                                        ))}
+                                                                    </div>
+                                                                )}
+                                                                
+                                                                {snag.links && snag.links.length > 0 && (
+                                                                    <div className="flex flex-wrap gap-2 ml-6">
+                                                                        {snag.links.map(link => (
+                                                                            <a 
+                                                                                key={link.id}
+                                                                                href={link.url} 
+                                                                                target="_blank" 
+                                                                                rel="noopener noreferrer"
+                                                                                className="text-blue-600 hover:text-blue-800 underline text-xs bg-blue-50 border border-blue-300 rounded px-2 py-1"
+                                                                            >
+                                                                                {link.text}
+                                                                            </a>
+                                                                        ))}
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        ))}
+
+                                                        {roomSnags.length === 0 && (
+                                                            <div className="text-center py-4 text-slate-400 text-xs">
+                                                                No snags yet
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+
+                            <div className="md:col-span-2 bg-white rounded-lg shadow-lg p-6">
+                                <div className="text-center py-12 text-slate-400">
+                                    <h2 className="text-2xl font-bold text-slate-700 mb-4">How to Use v2.0</h2>
+                                    <div className="text-left max-w-md mx-auto space-y-3 text-sm text-slate-600">
+                                        <p>✓ Sign in with Google for cloud sync</p>
+                                        <p>✓ Data syncs automatically across devices</p>
+                                        <p>✓ Works offline (read-only by default)</p>
+                                        <p>✓ Enable offline editing when working solo</p>
+                                        <p>✓ Click rooms to expand and add snags</p>
+                                        <p>✓ Edit snags with the pencil icon</p>
+                                        <p>✓ Attach photos and links to snags</p>
+                                        <p>✓ Download manual backup anytime</p>
+                                        <p className="text-blue-600 font-semibold mt-4">☁️ One file, all devices in sync!</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {viewingPhoto && (
+                        <div 
+                            className="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50 p-4"
+                            onClick={() => setViewingPhoto(null)}
+                        >
+                            <div className="relative max-w-4xl max-h-full">
+                                <button
+                                    onClick={() => setViewingPhoto(null)}
+                                    className="absolute -top-10 right-0 p-2 bg-white text-slate-800 rounded-full hover:bg-slate-100 transition"
+                                >
+                                    <X size={24} />
+                                </button>
+                                <img 
+                                    src={viewingPhoto.data} 
+                                    alt="Full size"
+                                    className="max-w-full max-h-[90vh] object-contain rounded-lg"
+                                />
+                            </div>
+                        </div>
+                    )}
+                </div>
+            );
+        }
+
+        ReactDOM.render(<LodgeSnagTracker />, document.getElementById('root'));
+    </script>
+</body>
+</html>
