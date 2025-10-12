@@ -13,6 +13,7 @@
     <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
     <script src="https://apis.google.com/js/api.js"></script>
 </head>
 <body>
@@ -22,6 +23,7 @@
         const { useState, useEffect } = React;
         
         const CLIENT_ID = '143126622947-aua7tmjl6rf5fq4i4ggijrvvbe8ut9ck.apps.googleusercontent.com';
+        const API_KEY = 'AIzaSyA9Z_fZB1Sv5mUPmToeRQdkgUPxHu6U3q4';
         const SCOPES = 'https://www.googleapis.com/auth/drive.file';
         const DISCOVERY_DOCS = ['https://www.googleapis.com/discovery/v1/apis/drive/v3/rest'];
         
@@ -136,12 +138,21 @@
             // Initialize Google API
             useEffect(() => {
                 const initClient = () => {
+                    if (!window.gapi) {
+                        console.error('Google API not loaded');
+                        alert('Google API failed to load. Check if ad blockers are blocking apis.google.com');
+                        loadFromLocalStorage();
+                        return;
+                    }
+
                     window.gapi.load('client:auth2', () => {
                         window.gapi.client.init({
+                            apiKey: API_KEY,
                             clientId: CLIENT_ID,
                             discoveryDocs: DISCOVERY_DOCS,
                             scope: SCOPES
                         }).then(() => {
+                            console.log('Google API initialized successfully');
                             setGapiReady(true);
                             const authInstance = window.gapi.auth2.getAuthInstance();
                             setIsSignedIn(authInstance.isSignedIn.get());
@@ -154,16 +165,28 @@
                             }
                         }).catch(err => {
                             console.error('Error initializing Google API:', err);
+                            alert('Error initializing Google Drive: ' + err.message);
                             loadFromLocalStorage();
                         });
                     });
                 };
 
-                if (window.gapi) {
-                    initClient();
-                } else {
-                    loadFromLocalStorage();
-                }
+                // Wait for gapi to load
+                let attempts = 0;
+                const checkGapi = setInterval(() => {
+                    attempts++;
+                    if (window.gapi) {
+                        clearInterval(checkGapi);
+                        initClient();
+                    } else if (attempts > 20) {
+                        clearInterval(checkGapi);
+                        console.error('Google API failed to load after 10 seconds');
+                        alert('Google Drive sync unavailable. Using local mode. Check if apis.google.com is blocked.');
+                        loadFromLocalStorage();
+                    }
+                }, 500);
+
+                return () => clearInterval(checkGapi);
             }, []);
 
             // Monitor online/offline status
@@ -564,7 +587,7 @@
                                 <div>
                                     <div className="flex items-baseline gap-3">
                                         <h1 className="text-3xl font-bold text-slate-800">Lodge Build Tracker</h1>
-                                        <span className="text-sm text-slate-400">v2.0</span>
+                                        <span className="text-sm text-slate-400">v2.2</span>
                                     </div>
                                     <div className="mt-2">{getStatusIndicator()}</div>
                                 </div>
