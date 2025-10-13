@@ -64,14 +64,14 @@
                     window.gapi.load('client', async () => {
                         try {
                             await window.gapi.client.init({ apiKey: API_KEY });
-                            await window.gapi.client.load('https://www.googleapis.com/discovery/v1/apis/drive/v3/rest');
+                            // Don't pre-load Drive API - load it on demand
                             setGapiReady(true);
                             const savedToken = localStorage.getItem('gapi_access_token');
                             if (savedToken) { setAccessToken(savedToken); setIsSignedIn(true); loadFromDrive(); }
                             else { loadFromLocalStorage(); }
                         } catch (err) { 
-                            console.error('Google API error (may be temporary):', err); 
-                            alert('Google Drive sync unavailable (Google server issue). Using local mode. Try refreshing in a moment.');
+                            console.error('Google API error:', err); 
+                            alert('Google Drive sync unavailable. Using local mode. Error: ' + (err.message || 'Unknown'));
                             loadFromLocalStorage(); 
                         }
                     });
@@ -127,6 +127,12 @@
             const findOrCreateFile = async () => {
                 try {
                     window.gapi.client.setToken({ access_token: accessToken });
+                    
+                    // Ensure Drive API is loaded
+                    if (!window.gapi.client.drive) {
+                        await window.gapi.client.load('drive', 'v3');
+                    }
+                    
                     const res = await window.gapi.client.drive.files.list({ q: "name='lodge-backup.json' and trashed=false", spaces: 'drive', fields: 'files(id, name)' });
                     if (res.result.files?.length > 0) return res.result.files[0].id;
                     const meta = { name: 'lodge-backup.json', mimeType: 'application/json' };
@@ -148,6 +154,12 @@
                 setIsSyncing(true);
                 try {
                     window.gapi.client.setToken({ access_token: accessToken });
+                    
+                    // Ensure Drive API is loaded
+                    if (!window.gapi.client.drive) {
+                        await window.gapi.client.load('drive', 'v3');
+                    }
+                    
                     let fid = driveFileId;
                     if (!fid) { fid = await findOrCreateFile(); if (fid) { setDriveFileId(fid); localStorage.setItem('driveFileId', fid); } }
                     if (fid) {
@@ -163,6 +175,12 @@
                 setIsSyncing(true);
                 try {
                     window.gapi.client.setToken({ access_token: accessToken });
+                    
+                    // Ensure Drive API is loaded
+                    if (!window.gapi.client.drive) {
+                        await window.gapi.client.load('drive', 'v3');
+                    }
+                    
                     let fid = driveFileId;
                     if (!fid) { fid = await findOrCreateFile(); if (fid) { setDriveFileId(fid); localStorage.setItem('driveFileId', fid); } }
                     if (fid) {
@@ -298,7 +316,7 @@
                                 <div>
                                     <div className="flex items-baseline gap-3">
                                         <h1 className="text-3xl font-bold text-slate-800">Lodge Build Tracker</h1>
-                                        <span className="text-sm text-slate-400">v2.7</span>
+                                        <span className="text-sm text-slate-400">v2.8</span>
                                     </div>
                                     <div className="mt-2">{getStatusIndicator()}</div>
                                 </div>
