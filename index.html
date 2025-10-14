@@ -145,7 +145,7 @@
         const { useState, useEffect, useMemo, useCallback, useRef } = React;
         
         // --- CONFIGURATION ---
-        const APP_VERSION = '12.9 (Restored & Icons Fixed)'; 
+        const APP_VERSION = '13.0 (Open Count & Stability Fix)'; 
         const TABLE_NAME = 'snags';
         const CATEGORY_STORAGE_KEY = 'snag_projects_v11_3'; 
         
@@ -163,10 +163,9 @@
         const INITIAL_PROJECTS = {};
 
         // --- ICONS (Lucide React equivalent SVGs) ---
-        // NOTE: The Trash icon JSX has been corrected to close with </svg>
         const X = (props) => <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6L6 18"/><path d="M6 6l12 12"/></svg>;
         const Check = (props) => <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5"/></svg>;
-        const Trash = (props) => <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M10 4h4V2h-4z"/></svg>; // FIXED JSX ERROR HERE
+        const Trash = (props) => <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M10 4h4V2h-4z"/></svg>; 
         const Edit = (props) => <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5L2 22l1.5-5.5L17 3z"/></svg>;
         const Plus = (props) => <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14"/><path d="M5 12h14"/></svg>;
         const Camera = (props) => <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>;
@@ -174,6 +173,7 @@
         const Tag = (props) => <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12.5 16H2"/><path d="M22 7l-5-5L2 17l5 5z"/></svg>;
         const LayoutGrid = (props) => <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/></svg>;
         const ArrowLeft = (props) => <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m12 19l-7-7 7-7"/><path d="M19 12H5"/></svg>;
+        const AlertCircle = (props) => <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12" y2="16"/></svg>;
 
 
         // --- UTILITY FUNCTIONS (Database Structure Management) ---
@@ -192,18 +192,15 @@
         const getStructureFromDB = async (client) => {
             if (!client) return null;
             try {
-                // FIX: Must select the correct column name 'structure_map' which was created in the SQL fix.
                 const { data, error } = await client
                     .from(STRUCTURE_TABLE)
                     .select('structure_map')
                     .eq('id', STRUCTURE_ROW_ID)
                     .single();
 
-                // PGRST116 means 'no row found' (which is expected if it's the first time)
                 if (error && error.code !== 'PGRST116') { 
                     console.warn("DB Structure Fetch Warning:", error.message);
                 }
-                // data.structure_map will contain the JSON object of {project: [groups]}
                 return data?.structure_map || null; 
 
             } catch (e) {
@@ -215,7 +212,6 @@
         const saveStructureToDB = async (client, map) => {
             if (!client) return false;
             try {
-                // FIX: Ensure upsert uses the correct column names 'id' and 'structure_map'
                 const { error } = await client
                     .from(STRUCTURE_TABLE)
                     .upsert({ id: STRUCTURE_ROW_ID, structure_map: map }, { onConflict: 'id' });
@@ -275,10 +271,10 @@
         function Tracker() {
             const [snags, setSnags] = useState([]);
             
-            // Structure Management State: Initialized to empty map, actual loading happens in useEffect
+            // Structure Management State
             const [allGroupsMap, setAllGroupsMap] = useState({});
             const allProjects = useMemo(() => Object.keys(allGroupsMap).sort(), [allGroupsMap]);
-            const totalSnagsCount = snags.length; // Added for orphaned count in UI
+            const totalSnagsCount = snags.length; 
 
             // UI State for the navigation
             const [selectedProject, setSelectedProject] = useState('');
@@ -333,6 +329,20 @@
                     setStatus(`Initialization Error: ${error.message}`);
                 }
             }, []);
+            
+            // --- NEW: Calculate open snags by Group/Room ---
+            const openSnagsByGroup = useMemo(() => {
+                const counts = {}; // { 'ProjectA|Group1': 5, ... }
+
+                snags.forEach(snag => {
+                    if (snag.status === 'open') {
+                        const key = `${snag.header_category}|${snag.room_name}`;
+                        counts[key] = (counts[key] || 0) + 1;
+                    }
+                });
+                return counts;
+            }, [snags]);
+
 
             const fetchSnags = useCallback(async (client) => {
                 if (!client) return;
@@ -343,28 +353,20 @@
                 let structureMap = await getStructureFromDB(client); 
                 
                 if (!structureMap) {
-                    // Try to migrate from old local storage
                     const localData = loadLegacyProjects();
                     if (localData && Object.keys(localData).length > 0) {
                         structureMap = localData;
-                        console.log("Migrating local structure to Supabase...");
                         setStatus('Migrating project structure...');
                     } else {
-                        // Use the empty template for a blank canvas start if no data is found locally or in DB
                         structureMap = INITIAL_PROJECTS;
                     }
 
-                    // Upload the final chosen structure (local data or template) to the DB for the first time
                     if (await saveStructureToDB(client, structureMap)) {
-                        // Clear local storage once successfully migrated/initialized to prevent future attempts
                         localStorage.removeItem(CATEGORY_STORAGE_KEY);
-                        console.log("Project structure initialized/updated in Supabase.");
                     }
                 }
                 
-                // Set the current state map
                 setAllGroupsMap(structureMap);
-
 
                 // --- 2. Fetch Snags ---
                 const { data, error } = await client
@@ -381,18 +383,24 @@
                 setSnags(data);
                 setStatus(`Sync successful. ${data.length} items. Structure synced.`);
 
-                // --- 3. Update Selections and Defaults ---
+                // --- 3. Update Selections and Defaults (Stability Fix) ---
                 const projects = Object.keys(structureMap).sort();
                 
-                let projectToSelect = selectedProject;
-                let groupToSelect = selectedGroup;
+                // Use the latest state values for non-conflicting check
+                const currentProject = client._selectionProject || '';
+                const currentGroup = client._selectionGroup || '';
+                
+                let projectToSelect = currentProject;
+                let groupToSelect = currentGroup;
 
+                // Check if the currently selected project is still valid.
                 if (!projectToSelect || !projects.includes(projectToSelect)) {
                     projectToSelect = projects[0] || '';
                 } 
 
                 if (projectToSelect) {
                     const currentGroups = structureMap[projectToSelect] || [];
+                    // Check if the currently selected group is still valid under the newly validated/selected project.
                     if (!groupToSelect || !currentGroups.includes(groupToSelect)) {
                         groupToSelect = currentGroups[0] || '';
                     }
@@ -400,17 +408,36 @@
                     groupToSelect = '';
                 }
 
-                setSelectedProject(projectToSelect);
-                setSelectedGroup(groupToSelect);
+                // ONLY set state if the calculated values are different from the current state values
+                // This prevents endless re-runs of the selection logic if the state is already correct
+                if (projectToSelect !== currentProject) {
+                    setSelectedProject(projectToSelect);
+                }
+                if (groupToSelect !== currentGroup) {
+                    setSelectedGroup(groupToSelect);
+                }
                 
-                const firstProj = projects[0] || '';
-                setNewProjectCategory(firstProj);
-                setNewProjectGroup(structureMap[firstProj]?.[0] || '');
+                // Also update the hidden values on the client instance so the next run of fetchSnags sees them
+                client._selectionProject = projectToSelect;
+                client._selectionGroup = groupToSelect;
+                
+                // Set defaults for the Add Snag Modal if the app is starting/uninitialized
+                if (!newProjectCategory) { 
+                    const firstProj = projects[0] || '';
+                    setNewProjectCategory(firstProj);
+                    setNewProjectGroup(structureMap[firstProj]?.[0] || '');
+                }
 
-            }, [selectedProject, selectedGroup]); 
+
+            // STABILITY FIX: Remove selectedProject/selectedGroup from dependency array to prevent re-fetch loop
+            }, [supabaseClient, newProjectCategory]); 
 
             useEffect(() => {
                 if (!supabaseClient) return;
+                
+                // Initialize hidden state on client instance for stability fix
+                supabaseClient._selectionProject = '';
+                supabaseClient._selectionGroup = '';
                 
                 fetchSnags(supabaseClient);
 
@@ -418,6 +445,7 @@
                 const snagSubscription = supabaseClient
                     .channel('public:snags_updates')
                     .on('postgres_changes', { event: '*', schema: 'public', table: TABLE_NAME }, payload => {
+                        // When data changes, re-fetch and re-run selection logic
                         fetchSnags(supabaseClient);
                     })
                     .subscribe();
@@ -426,7 +454,6 @@
                 const structureSubscription = supabaseClient
                     .channel('public:structure_updates')
                     .on('postgres_changes', { event: '*', schema: 'public', table: STRUCTURE_TABLE }, payload => {
-                        console.log("Structure updated in DB, re-fetching...");
                         fetchSnags(supabaseClient);
                     })
                     .subscribe();
@@ -459,12 +486,15 @@
                             delete newMap[currentName];
                             if (selectedProject === currentName) {
                                 setSelectedProject(newName); // Keep the new selection
+                                supabaseClient._selectionProject = newName; // Update hidden state
                             }
                         } else if (action === 'delete') {
                             delete newMap[currentName];
                             // Force selection update on delete
                             setSelectedProject('');
                             setSelectedGroup('');
+                            supabaseClient._selectionProject = '';
+                            supabaseClient._selectionGroup = '';
                             shouldResetSelection = true;
                         }
                     } else if (type === 'group' && parentProject) {
@@ -477,12 +507,14 @@
                             if (index !== -1) groups[index] = newName;
                             if (selectedGroup === currentName) {
                                 setSelectedGroup(newName); // Keep the new selection
+                                supabaseClient._selectionGroup = newName; // Update hidden state
                             }
                         } else if (action === 'delete') {
                             newMap[parentProject] = groups.filter(s => s !== currentName);
                             // Force group update on delete
                             if (currentName === selectedGroup) {
                                 setSelectedGroup('');
+                                supabaseClient._selectionGroup = '';
                                 shouldResetSelection = true;
                             }
                         }
@@ -504,9 +536,8 @@
                     }
                     
                     // 3. Trigger re-fetch to ensure all components are synced and filters are reset correctly
-                    if (shouldResetSelection || success) {
-                         fetchSnags(supabaseClient);
-                    }
+                    // We call fetchSnags directly instead of relying on the listener which might be delayed
+                    fetchSnags(supabaseClient);
                 }
 
                 // If deleting, show the confirm modal first
@@ -612,8 +643,12 @@
 
             const handleProjectSelect = (project) => {
                 setSelectedProject(project);
+                supabaseClient._selectionProject = project; // Update hidden state
                 const newGroups = allGroupsMap[project] || [];
-                setSelectedGroup(newGroups[0] || '');
+                const newGroup = newGroups[0] || '';
+                setSelectedGroup(newGroup);
+                supabaseClient._selectionGroup = newGroup; // Update hidden state
+
                 if (!isDesktop) {
                     setActivePanel('groups');
                 }
@@ -621,6 +656,7 @@
 
             const handleGroupSelect = (group) => {
                 setSelectedGroup(group);
+                supabaseClient._selectionGroup = group; // Update hidden state
                 if (!isDesktop) {
                     setActivePanel('items');
                 }
@@ -829,7 +865,7 @@
                                 onChange={(e) => setSnagText(e.target.value)}
                                 className="w-full p-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary mb-6 text-base"
                                 required
-                                ref={inputRef} /* Focus applied here */
+                                ref={inputRef} 
                             />
 
                             <div className="flex justify-between items-center">
@@ -967,7 +1003,7 @@
                                     onChange={(e) => setInputValue(e.target.value)}
                                     className="w-full p-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary mb-6 text-base"
                                     required
-                                    ref={inputRef} /* Focus applied here */
+                                    ref={inputRef} 
                                 />
 
                                 <div className="flex justify-end">
@@ -1029,7 +1065,7 @@
                                 onChange={(e) => setLinkText(e.target.value)}
                                 className="w-full p-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary mb-4 text-base"
                                 required
-                                ref={linkTextRef} /* Focus applied here */
+                                ref={linkTextRef} 
                             />
                             
                             <label className="block text-sm font-medium text-slate-700 mb-1">URL (The link destination)</label>
@@ -1066,10 +1102,10 @@
                 return (
                     <div className={`panel project-panel ${active ? 'active-panel' : 'hidden-right'}`} id="projects-panel">
                         <div className="p-4 border-b border-slate-200 flex justify-between items-center bg-white">
+                             {/* TITLE COUNT REMOVED: Projects (X) changed to Projects */}
                             <h2 className="text-xl font-extrabold text-slate-800 flex items-center">
-                                <LayoutGrid className="w-5 h-5 mr-2 text-primary"/> Projects ({allProjects.length})
+                                <LayoutGrid className="w-5 h-5 mr-2 text-primary"/> Projects
                             </h2>
-                            {/* Plus button is correctly placed here in the header */}
                             <button 
                                 onClick={() => structureAction('project', 'add')} 
                                 className="p-2 bg-accent text-white rounded-full shadow-md hover:bg-green-600 transition"
@@ -1128,7 +1164,7 @@
                 );
             };
 
-            const GroupPanel = ({ active, selectedProject, availableGroups, selectedGroup, onSelect, structureAction, navigateBack }) => {
+            const GroupPanel = ({ active, selectedProject, availableGroups, selectedGroup, onSelect, structureAction, navigateBack, openSnagsByGroup }) => {
                 const groupCount = availableGroups.length;
 
                 return (
@@ -1137,11 +1173,11 @@
                             <button onClick={() => navigateBack('groups')} className="lg:hidden text-primary p-1 rounded-full hover:bg-slate-100 mr-2">
                                 <ArrowLeft className="w-6 h-6"/>
                             </button>
+                             {/* TITLE COUNT REMOVED: Rooms (X) changed to Rooms */}
                             <h2 className="text-xl font-extrabold text-slate-800 truncate flex-grow">
                                 <Tag className="w-5 h-5 mr-2 text-primary inline-block"/>
-                                {selectedProject ? `${selectedProject} / Rooms (${groupCount})` : 'Select a Project'}
+                                {selectedProject ? `${selectedProject} / Rooms` : 'Select a Project'}
                             </h2>
-                            {/* Plus button is correctly placed here in the header */}
                             <button 
                                 onClick={() => selectedProject && structureAction('group', 'add', '', selectedProject)} 
                                 className={`p-2 bg-accent text-white rounded-full shadow-md hover:bg-green-600 transition ${!selectedProject ? 'opacity-50 cursor-not-allowed' : ''}`}
@@ -1153,30 +1189,45 @@
                         </div>
                         <div className="panel-list-wrapper">
                             {selectedProject && groupCount > 0 ? (
-                                availableGroups.map(group => (
-                                    <div key={group} 
-                                        onClick={() => onSelect(group)}
-                                        className={`px-4 py-3 border-b border-slate-100 cursor-pointer transition flex justify-between items-center ${selectedGroup === group ? 'bg-blue-100 font-bold text-primary' : 'hover:bg-slate-50 text-slate-700'}`}
-                                    >
-                                        <span className="truncate">{group}</span>
-                                        <div className="flex space-x-2">
-                                            <button 
-                                                onClick={(e) => { e.stopPropagation(); structureAction('group', 'edit', group, selectedProject); }}
-                                                className="p-1 rounded-full text-slate-500 hover:text-primary hover:bg-slate-200 transition"
-                                                title="Rename Room"
-                                            >
-                                                <Edit className="w-4 h-4"/>
-                                            </button>
-                                            <button 
-                                                onClick={(e) => { e.stopPropagation(); structureAction('group', 'delete', group, selectedProject); }}
-                                                className="p-1 rounded-full text-slate-500 hover:text-red-600 hover:bg-slate-200 transition"
-                                                title="Delete Room"
-                                            >
-                                                <Trash className="w-4 h-4"/>
-                                            </button>
+                                availableGroups.map(group => {
+                                    const key = `${selectedProject}|${group}`;
+                                    const openCount = openSnagsByGroup[key] || 0;
+                                    const hasOpen = openCount > 0;
+
+                                    return (
+                                        <div key={group} 
+                                            onClick={() => onSelect(group)}
+                                            className={`px-4 py-3 border-b border-slate-100 cursor-pointer transition flex justify-between items-center ${selectedGroup === group ? 'bg-blue-100 font-bold text-primary' : 'hover:bg-slate-50 text-slate-700'}`}
+                                        >
+                                            <span className="truncate flex items-center">
+                                                {group}
+                                                {/* NEW: Display Open Snag Count */}
+                                                {hasOpen && (
+                                                    <span className="ml-3 px-2 py-0.5 text-xs font-bold text-white bg-status-open rounded-full shadow-inner flex items-center">
+                                                        <AlertCircle className="w-3 h-3 mr-1"/>
+                                                        {openCount}
+                                                    </span>
+                                                )}
+                                            </span>
+                                            <div className="flex space-x-2">
+                                                <button 
+                                                    onClick={(e) => { e.stopPropagation(); structureAction('group', 'edit', group, selectedProject); }}
+                                                    className="p-1 rounded-full text-slate-500 hover:text-primary hover:bg-slate-200 transition"
+                                                    title="Rename Room"
+                                                >
+                                                    <Edit className="w-4 h-4"/>
+                                                </button>
+                                                <button 
+                                                    onClick={(e) => { e.stopPropagation(); structureAction('group', 'delete', group, selectedProject); }}
+                                                    className="p-1 rounded-full text-slate-500 hover:text-red-600 hover:bg-slate-200 transition"
+                                                    title="Delete Room"
+                                                >
+                                                    <Trash className="w-4 h-4"/>
+                                                </button>
+                                            </div>
                                         </div>
-                                    </div>
-                                ))
+                                    );
+                                })
                             ) : selectedProject && (
                                 <div className="p-4 text-center text-slate-500">
                                     <p className="mb-2 font-semibold">No Rooms defined for this Project.</p>
@@ -1189,7 +1240,8 @@
             };
 
             const ItemsPanel = ({ active, filteredSnags, selectedProject, selectedGroup, toggleStatus, startEdit, viewingPhoto, setViewingPhoto, navigateBack, allProjects }) => {
-                const title = allProjects.length === 0 ? `All Orphaned Items (${filteredSnags.length})` : `${selectedProject} / ${selectedGroup} (${filteredSnags.length})`;
+                // TITLE COUNT REMOVED: Item count removed from title
+                const title = allProjects.length === 0 ? 'All Orphaned Items' : `${selectedProject} / ${selectedGroup}`;
 
                 return (
                     <div className={`panel items-panel ${active ? 'active-panel' : 'hidden-right'}`} id="items-panel">
@@ -1198,7 +1250,6 @@
                                 <ArrowLeft className="w-6 h-6"/>
                             </button>
                             <h2 className="text-xl font-extrabold text-slate-800 flex-grow truncate">{title}</h2>
-                             {/* Plus button is correctly placed here in the header */}
                             <button 
                                 onClick={handleAddItemClick} 
                                 className={`p-2 bg-primary text-white rounded-full shadow-md hover:bg-blue-900 transition ${!selectedGroup && allProjects.length > 0 ? 'opacity-50 cursor-not-allowed' : ''}`}
@@ -1477,6 +1528,7 @@
                         onSelect={handleGroupSelect} 
                         structureAction={structureAction} 
                         navigateBack={navigateBack}
+                        openSnagsByGroup={openSnagsByGroup} // Passed new data here
                     />
 
                     <ItemsPanel 
