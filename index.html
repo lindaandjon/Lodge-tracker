@@ -1301,3 +1301,32 @@
                             
                             {/* Project Items List */}
                             
+                            <div className="flex flex-col gap-4">
+                                {filteredSnags.length === 0 ? (
+                                    <p className="p-4 text-center text-sm text-slate-500 bg-white rounded-xl shadow-md">
+                                        {selectedProject && selectedGroup 
+                                            ? `No open or completed items in ${selectedProject} / ${selectedGroup}. Click the '+' button above to add one.`
+                                            : 'Select a project and room to view items.'}
+                                    </p>
+                                ) : (
+                                    filteredSnags.map(snag => (
+                                        <SnagItem key={snag.id} snag={snag} />
+                                    ))
+                                )}
+                            </div>
+
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(
+            <React.StrictMode>
+                <Tracker />
+            </React.StrictMode>
+        );
+    </script>
+</body>
+</html>
