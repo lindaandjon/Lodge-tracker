@@ -148,89 +148,104 @@
             };
 
             const findOrCreateFile = async () => {
-                try {
-                    window.gapi.client.setToken({ access_token: accessToken });
-                    
-                    // Ensure Drive API is loaded
-                    if (!window.gapi.client.drive) {
-                        await window.gapi.client.load('drive', 'v3');
-                    }
-                    
-                    const res = await window.gapi.client.drive.files.list({ q: "name='lodge-backup.json' and trashed=false", spaces: 'drive', fields: 'files(id, name)' });
-                    if (res.result.files?.length > 0) return res.result.files[0].id;
-                    const meta = { name: 'lodge-backup.json', mimeType: 'application/json' };
-                    const content = JSON.stringify({ rooms: [], snags: [], savedDate: new Date().toISOString() });
-                    const file = new Blob([content], { type: 'application/json' });
-                    const fd = new FormData();
-                    fd.append('metadata', new Blob([JSON.stringify(meta)], { type: 'application/json' }));
-                    fd.append('file', file);
-                    const up = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
-                        method: 'POST', headers: new Headers({ 'Authorization': 'Bearer ' + accessToken }), body: fd
-                    });
-                    const result = await up.json();
-                    return result.id;
-                } catch (e) { console.error(e); return null; }
-            };
+  try {
+    const listRes = await fetch('https://www.googleapis.com/drive/v3/files?q=name%3D%27lodge-backup.json%27+and+trashed%3Dfalse&fields=files(id,name)', {
+      headers: { Authorization: 'Bearer ' + accessToken }
+    });
+    const listData = await listRes.json();
+    if (listData.files?.length > 0) return listData.files[0].id;
+
+    const metadata = { name: 'lodge-backup.json', mimeType: 'application/json' };
+    const content = JSON.stringify({ rooms: [], snags: [], savedDate: new Date().toISOString() });
+    const form = new FormData();
+    form.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
+    form.append('file', new Blob([content], { type: 'application/json' }));
+
+    const uploadRes = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
+      method: 'POST',
+      headers: { Authorization: 'Bearer ' + accessToken },
+      body: form
+    });
+    const uploadData = await uploadRes.json();
+    return uploadData.id;
+  } catch (e) {
+    console.error('Drive file create error:', e);
+    return null;
+  }
+};
+
 
             const loadFromDrive = async () => {
-				if (!window.gapi.client.drive) {
-					await window.gapi.client.load('drive', 'v3');
-					}
+  if (!isSignedIn || !accessToken) return;
+  setIsSyncing(true);
+  try {
+    let fid = driveFileId;
+    if (!fid) {
+      fid = await findOrCreateFile();
+      if (fid) {
+        setDriveFileId(fid);
+        localStorage.setItem('driveFileId', fid);
+      }
+    }
+    if (fid) {
+      const res = await fetch(`https://www.googleapis.com/drive/v3/files/${fid}?alt=media`, {
+        headers: { Authorization: 'Bearer ' + accessToken }
+      });
+      const data = await res.json();
+      if (data.rooms && data.snags) {
+        setRooms(data.rooms);
+        setSnags(data.snags);
+        setLastSyncTime(Date.now());
+        setLastSyncedData({ rooms: data.rooms, snags: data.snags });
+      }
+    }
+  } catch (e) {
+    console.error('Drive load error:', e);
+    alert('Failed to load from Drive: ' + (e.message || 'Unknown error'));
+  } finally {
+    setIsSyncing(false);
+  }
+};
 
-                if (!isSignedIn || !gapiReady || !accessToken) return;
-                setIsSyncing(true);
-                try {
-                    window.gapi.client.setToken({ access_token: accessToken });
-                    
-                    // Ensure Drive API is loaded
-                    if (!window.gapi.client.drive) {
-                        await window.gapi.client.load('drive', 'v3');
-                    }
-                    
-                    let fid = driveFileId;
-                    if (!fid) { fid = await findOrCreateFile(); if (fid) { setDriveFileId(fid); localStorage.setItem('driveFileId', fid); } }
-                    if (fid) {
-                        const res = await window.gapi.client.drive.files.get({ fileId: fid, alt: 'media' });
-                        const data = res.result;
-                        if (data.rooms && data.snags) { setRooms(data.rooms); setSnags(data.snags); setLastSyncTime(Date.now()); }
-                    }
-                } catch (e) { console.error(e); } finally { setIsSyncing(false); }
-            };
+
 
             const saveToDrive = async () => {
-				if (!window.gapi.client.drive) {
-					await window.gapi.client.load('drive', 'v3');
-					}
+  if (!isSignedIn || !isOnline || !accessToken) return;
+  setIsSyncing(true);
+  try {
+    let fid = driveFileId;
+    if (!fid) {
+      fid = await findOrCreateFile();
+      if (fid) {
+        setDriveFileId(fid);
+        localStorage.setItem('driveFileId', fid);
+      }
+    }
+    if (fid) {
+      const data = { rooms, snags, savedDate: new Date().toISOString() };
+      await fetch(`https://www.googleapis.com/upload/drive/v3/files/${fid}?uploadType=media`, {
+        method: 'PATCH',
+        headers: {
+          Authorization: 'Bearer ' + accessToken,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(data)
+      });
+      setLastSyncTime(Date.now());
+      setLastSyncedData({ rooms, snags });
+      if ('Notification' in window && Notification.permission === 'granted') {
+        new Notification('Lodge Tracker', { body: '✅ Synced to Google Drive', icon: 'icon-192.png' });
+      }
+    }
+  } catch (e) {
+    console.error('Drive save error:', e);
+    alert('Failed to save to Drive: ' + (e.message || 'Unknown error'));
+  } finally {
+    setIsSyncing(false);
+  }
+};
 
-                if (!isSignedIn || !isOnline || !gapiReady || !accessToken) return;
-                setIsSyncing(true);
-                try {
-                    window.gapi.client.setToken({ access_token: accessToken });
-                    
-                    // Ensure Drive API is loaded
-                    if (!window.gapi.client.drive) {
-                        await window.gapi.client.load('drive', 'v3');
-                    }
-                    
-                    let fid = driveFileId;
-                    if (!fid) { fid = await findOrCreateFile(); if (fid) { setDriveFileId(fid); localStorage.setItem('driveFileId', fid); } }
-                    if (fid) {
-                        const data = { rooms, snags, savedDate: new Date().toISOString() };
-                        await window.gapi.client.request({ path: '/upload/drive/v3/files/' + fid, method: 'PATCH', params: { uploadType: 'media' }, body: JSON.stringify(data) });
-                        setLastSyncTime(Date.now());
-                        if ('Notification' in window && Notification.permission === 'granted') {
-                            new Notification('Lodge Tracker', { body: '✅ Synced to Google Drive', icon: 'icon-192.png' });
-                        }
-                    }
-                } catch (e) {
-					console.error('Drive sync error:', e);
-					alert('Drive sync failed: ' + (e.message || 'Unknown error'));
-					} finally {
-						setIsSyncing(false);
-					}
 
-
-            };
 
             useEffect(() => {
                 if (isSignedIn && lastSyncedData) {
@@ -354,7 +369,7 @@
                                 <div>
                                     <div className="flex items-baseline gap-3">
                                         <h1 className="text-3xl font-bold text-slate-800">Lodge Build Tracker</h1>
-                                        <span className="text-sm text-slate-400">v2.9</span>
+                                        <span className="text-sm text-slate-400">v2.91</span>
                                     </div>
                                     <div className="mt-2">{getStatusIndicator()}</div>
                                 </div>
@@ -572,7 +587,7 @@
                             </div>
                             <div className="md:col-span-2 bg-white rounded-lg shadow-lg p-6">
                                 <div className="text-center py-12 text-slate-400">
-                                    <h2 className="text-2xl font-bold text-slate-700 mb-4">How to Use v2.9</h2>
+                                    <h2 className="text-2xl font-bold text-slate-700 mb-4">How to Use v2.91</h2>
                                     <div className="text-left max-w-md mx-auto space-y-3 text-sm text-slate-600">
                                         <p>✓ Sign in with Google for cloud sync</p>
                                         <p>✓ Data syncs automatically across devices</p>
