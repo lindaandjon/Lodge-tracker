@@ -4,6 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Project Snag Tracker</title>
+    <!-- Favicon (Construction Hat Icon) -->
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%231E40AF'%3E%3Cpath d='M10.87 2.15a2 2 0 0 0-2.73.43L2 14.59v4.25c0 1.25.75 1.58 1.9 1.58h15.98c1.15 0 1.9-.33 1.9-1.58V14.59l-6.14-12.01a2 2 0 0 0-2.73-.43Z'/%3E%3Cpath fill='%2310B981' d='M12 21a1 1 0 0 0 0-2c-3.1 0-5.83-2.14-6.49-5h-1.02c.88 4 4.54 7 8.51 7Zm2.5-4a.5.5 0 1 0-1 0v.5h1z'/%3E%3C/svg%3E" type="image/svg+xml">
+
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
@@ -72,10 +75,13 @@
         .panel.hidden-right { transform: translateX(100%); z-index: 5; }
         .panel.active-panel { transform: translateX(0); z-index: 15; }
 
-        /* Desktop (lg breakpoint) 3-Column Layout */
+        /* Desktop (lg breakpoint) 3-Column Layout FIX */
         @media (min-width: 1024px) {
             .main-content {
-                grid-template-columns: minmax(180px, 1fr) minmax(250px, 1.5fr) minmax(350px, 3fr);
+                /* Define 3 columns explicitly */
+                grid-template-columns: minmax(200px, 1.5fr) minmax(250px, 2fr) minmax(350px, 4fr);
+                /* Ensure children fill the grid cells correctly */
+                display: grid; 
             }
             .panel {
                 position: relative; /* Revert to normal flow on desktop */
@@ -85,7 +91,7 @@
                 transform: none !important;
             }
             .items-panel {
-                 border-right: none;
+                 border-right: none; /* Last panel shouldn't have a right border */
             }
         }
 
@@ -134,7 +140,7 @@
         const { useState, useEffect, useMemo, useCallback } = React;
         
         // --- CONFIGURATION ---
-        const APP_VERSION = '12.3 (Database Cleanup)'; // Updated version
+        const APP_VERSION = '12.3 (Layout Fixed)'; // Updated version
         const TABLE_NAME = 'snags';
         const CATEGORY_STORAGE_KEY = 'snag_projects_v11_3'; // Old localStorage key (for migration only)
         
@@ -154,7 +160,6 @@
         const X = (props) => <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6L6 18"/><path d="M6 6l12 12"/></svg>;
         const Check = (props) => <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5"/></svg>;
         const Trash = (props) => <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M10 4h4V2h-4z"/></svg>;
-        {/* FIX: Removed redundant closing </path> tag that caused the Babel error */}
         const Edit = (props) => <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5L2 22l1.5-5.5L17 3z"/></svg>;
         const Plus = (props) => <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14"/><path d="M5 12h14"/></svg>;
         const Camera = (props) => <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>;
