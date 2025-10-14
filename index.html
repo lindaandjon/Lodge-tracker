@@ -134,13 +134,13 @@
         const { useState, useEffect, useMemo, useCallback } = React;
         
         // --- CONFIGURATION ---
-        const APP_VERSION = '11.4 (Focus & Sync Fixed)'; // Updated version
+        const APP_VERSION = '11.5 (Confirmed Fixes)'; // Updated version
         const TABLE_NAME = 'snags';
         const CATEGORY_STORAGE_KEY = 'snag_projects_v11_3'; 
         
         // !!! IMPORTANT: REPLACE THESE PLACEHOLDERS WITH YOUR SUPABASE KEYS !!!
-        const SUPABASE_URL = 'https://ejozspveaasscxqovitn.supabase.co'; 
-        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVqb3pzcHZlYWFzc2N4cW92aXRuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjA0MzMyOTcsImV4cCI6MjA3NjAwOTI5N30.D--chXcvpMl_gDRY0ZvBcAg3nzwwDAuuFHTB2pgYtZ8';
+        const SUPABASE_URL = 'PASTE_YOUR_SUPABASE_URL_HERE'; 
+        const SUPABASE_ANON_KEY = 'PASTE_YOUR_SUPABASE_ANON_KEY_HERE';
         // --- END CONFIGURATION ---
         
         // Initial setup data 
@@ -222,7 +222,7 @@
 
 
             // Modal States
-            const [modal, setModal] = useState(null); // Used for confirm/structure
+            const [modal, setModal] = useState(null); // Used for confirm/structure/status_view
             const [linkModal, setLinkModal] = useState(null); // Used for link insertion
             const [isAddSnagModalOpen, setIsAddSnagModalOpen] = useState(false); // Used for adding new items
             const [viewingPhoto, setViewingPhoto] = useState(null);
@@ -401,7 +401,7 @@
                     console.error("Error adding item:", error);
                     setStatus(`Failed to add item: ${error.message}`);
                 } else {
-                    // FIX 2: Manually fetch to force immediate UI update and bypass subscription latency
+                    // Manually fetch to force immediate UI update
                     await fetchSnags(supabaseClient); 
                     setStatus('Item added successfully. Syncing...');
                     
@@ -589,7 +589,7 @@
             // --- MODAL COMPONENTS ---
 
             const AddSnagModal = ({ isOpen, onClose, onAddSnag, setLinkModal, allGroupsMap, newProjectCategory, setNewProjectCategory, newProjectGroup, setNewProjectGroup }) => {
-                // FIX 1: New local state for the text input to prevent focus loss
+                // Local state for the text input to prevent focus loss
                 const [snagText, setSnagText] = useState(''); 
 
                 if (!isOpen) return null;
@@ -707,7 +707,7 @@
                     setModal(null); // Use setModal(null) here instead of closeModal to avoid calling it multiple times
                 };
 
-                // Confirmation Modal
+                // Confirmation Modal (Delete Snag Item)
                 if (modal.type === 'confirm') {
                     return (
                         <div className="modal" onClick={closeModal}>
@@ -735,6 +735,30 @@
                         </div>
                     );
                 }
+                
+                // Status View Modal (New for long errors/status)
+                if (modal.type === 'status_view') {
+                    return (
+                        <div className="modal" onClick={closeModal}>
+                            <div className="modal-content !max-w-xl" onClick={(e) => e.stopPropagation()}>
+                                <div className="flex items-center space-x-3 mb-4 border-b pb-3 border-slate-100">
+                                    <h3 className="text-xl font-bold text-slate-800">System Status / Error Log</h3>
+                                </div>
+                                {/* Added whitespace-pre-wrap and break-words for readability of long messages */}
+                                <p className="text-slate-600 whitespace-pre-wrap break-words max-h-96 overflow-y-auto mb-4 p-2 bg-slate-50 rounded-lg border border-slate-200">{modal.message}</p>
+                                <div className="flex justify-end">
+                                    <button
+                                        onClick={closeModal}
+                                        className="px-6 py-2.5 bg-primary text-white font-semibold rounded-xl hover:bg-blue-900 transition shadow-md"
+                                    >
+                                        Close
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    );
+                }
+
 
                 // Structure Management Modal (Add/Edit Project/Group)
                 if (modal.type === 'structure') {
@@ -753,6 +777,39 @@
                             closeModal();
                         }
                     };
+                    
+                    if (modal.actionType === 'delete') {
+                        // Handle Delete Confirmation (Project or Group)
+                        return (
+                            <div className="modal" onClick={closeModal}>
+                                <div className="modal-content transform transition-all" onClick={(e) => e.stopPropagation()}>
+                                    <div className="flex items-center space-x-3 mb-4 border-b pb-3 border-slate-100">
+                                        <Trash className="w-6 h-6 text-red-500"/>
+                                        <h3 className="text-xl font-bold text-slate-800">Confirm Deletion</h3>
+                                    </div>
+                                    <p className="text-slate-600 mb-8">
+                                        Are you sure you want to delete the {structureName.toLowerCase()} **{modal.currentName}**? 
+                                        {modal.structureType === 'project' ? ' This will also remove all associated Rooms and their snags.' : ' This will remove the room, but snags attached to it may persist in the database until manually deleted.'} 
+                                        This action cannot be undone.
+                                    </p>
+                                    <div className="flex justify-end space-x-3">
+                                        <button
+                                            onClick={closeModal}
+                                            className="px-6 py-2.5 bg-slate-100 text-slate-700 font-semibold rounded-xl hover:bg-slate-200 transition shadow-sm"
+                                        >
+                                            Cancel
+                                        </button>
+                                        <button
+                                            onClick={() => { modal.handler(modal.currentName); closeModal(); }}
+                                            className="px-6 py-2.5 bg-red-600 text-white font-semibold rounded-xl hover:bg-red-700 transition shadow-md"
+                                        >
+                                            Delete {structureName}
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        );
+                    }
 
                     return (
                         <div className="modal" onClick={closeModal}>
@@ -926,7 +983,7 @@
 
                         {/* Snag Text / Edit Area with Thumbnail */}
                         <div className="pb-3 border-b border-slate-100 mb-3 flex space-x-4 items-start">
-                            {/* NEW: Thumbnail display */}
+                            {/* Thumbnail display */}
                             {snag.photo_data && !isEditing && (
                                 <img 
                                     src={snag.photo_data} 
@@ -1146,9 +1203,15 @@
                             
                              {/* Status Indicator and Version (Fixed at bottom of Projects Panel) */}
                             <div className="groups-footer flex flex-col flex-shrink-0 p-3 border-t border-slate-200 bg-white">
-                                <div className="flex items-center mb-1">
+                                {/* Made the status bar clickable to view the full message/error */}
+                                <div 
+                                    className="flex items-center mb-1 cursor-pointer" 
+                                    onClick={() => setModal({ type: 'status_view', message: status })}
+                                    title="Click to view full status/error message"
+                                >
                                     <span className={`w-2 h-2 rounded-full mr-2 ${supabaseClient ? 'bg-green-500' : 'bg-red-500'}`}></span>
-                                    <span className="text-xs text-slate-600 truncate">{status}</span>
+                                    {/* Use truncate on the displayed text */}
+                                    <span className="text-xs text-slate-600 truncate max-w-[calc(100%-20px)] sm:max-w-full">{status}</span> 
                                 </div>
                                 <span className="text-[10px] text-slate-400 font-medium text-right">App Version: {APP_VERSION}</span>
                             </div>
@@ -1204,6 +1267,7 @@
                                                     />
                                                     <Trash 
                                                         className="w-4 h-4 text-red-400 hover:text-red-600 transition" 
+                                                        // FIX: Now correctly calls the 'delete' action for the group/room structure
                                                         onClick={(e) => { e.stopPropagation(); structureAction('group', 'delete', group, selectedProject); }}
                                                         title="Delete Room"
                                                     />
@@ -1236,28 +1300,4 @@
                             </h2>
                             
                             {/* Project Items List */}
-                            <div className="space-y-4">
-                                {(!selectedProject || !selectedGroup) && (
-                                    <div className="text-slate-500 p-6 bg-white rounded-xl shadow-lg text-center">
-                                        <p className="font-semibold">Please select a Project and a Room to view items.</p>
-                                    </div>
-                                )}
-                                {filteredSnags.length === 0 && selectedProject && selectedGroup && (
-                                    <div className="text-slate-500 p-6 bg-white rounded-xl shadow-lg text-center">
-                                        <Tag className="w-8 h-8 mx-auto mb-3 text-status-open" />
-                                        <p className="font-semibold">No items found in this view.</p>
-                                        <p className="text-sm">Click the **Add Item** button in the header to create one for **{selectedProject} / {selectedGroup}**.</p>
-                                    </div>
-                                )}
-                                {filteredSnags.map(snag => <SnagItem key={snag.id} snag={snag} />)}
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            );
-        }
-        
-        ReactDOM.render(<Tracker />, document.getElementById('root'));
-    </script>
-</body>
-</html>
+                            
