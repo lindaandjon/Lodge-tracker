@@ -134,36 +134,109 @@
         const { useState, useEffect, useMemo, useCallback } = React;
         
         // --- CONFIGURATION ---
-        const APP_VERSION = '11.5 (Confirmed Fixes)'; // Updated version
+        const APP_VERSION = '12.3 (Database Cleanup)'; // Updated version
         const TABLE_NAME = 'snags';
-        const CATEGORY_STORAGE_KEY = 'snag_projects_v11_3'; 
+        const CATEGORY_STORAGE_KEY = 'snag_projects_v11_3'; // Old localStorage key (for migration only)
         
-        // !!! IMPORTANT: REPLACE THESE PLACEHOLDERS WITH YOUR SUPABASE KEYS !!!
+        // NEW CONFIG for DB structure storage
+        const STRUCTURE_TABLE = 'app_structure';
+        const STRUCTURE_ROW_ID = 'project_room_map_v1';
+        
+        // !!! IMPORTANT: Supabase URL has been pasted below. Please replace the ANON KEY placeholder !!!
         const SUPABASE_URL = 'https://ejozspveaasscxqovitn.supabase.co'; 
         const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVqb3pzcHZlYWFzc2N4cW92aXRuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjA0MzMyOTcsImV4cCI6MjA3NjAwOTI5N30.D--chXcvpMl_gDRY0ZvBcAg3nzwwDAuuFHTB2pgYtZ8';
         // --- END CONFIGURATION ---
         
-        // Initial setup data 
-        const INITIAL_PROJECTS = {
-            "Lodge Build": ["Kitchen", "Master Bedroom", "Utility Room", "Exterior"],
-            "Legal": ["Sols", "Planning", "Contracts"],
-            "Financial": ["Mortgage", "Insurance"],
-        };
+        // Initial setup data (Set to empty {} for a blank canvas start)
+        const INITIAL_PROJECTS = {};
 
         // --- ICONS (Lucide React equivalent SVGs) ---
         const X = (props) => <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6L6 18"/><path d="M6 6l12 12"/></svg>;
         const Check = (props) => <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5"/></svg>;
         const Trash = (props) => <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M10 4h4V2h-4z"/></svg>;
-        const Edit = (props) => <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5L2 22l1.5-5.5L17 3z"/></svg>;
+        const Edit = (props) => <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5L2 22l1.5-5.5L17 3z"/></path></svg>;
         const Plus = (props) => <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14"/><path d="M5 12h14"/></svg>;
         const Camera = (props) => <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>;
         const LinkIcon = (props) => <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>;
-        const Tag = (props) => <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12.5 16H2"/><path d="M22 7l-5-5L2 17l5 5z"/></svg>;
         const LayoutGrid = (props) => <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/></svg>;
         const ArrowLeft = (props) => <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m12 19l-7-7 7-7"/><path d="M19 12H5"/></svg>;
 
 
-        // --- UTILITY FUNCTIONS ---
+        // --- UTILITY FUNCTIONS (Database Structure Management) ---
+
+        // Function to attempt loading legacy projects from localStorage for migration
+        const loadLegacyProjects = () => {
+            try {
+                const stored = localStorage.getItem(CATEGORY_STORAGE_KEY);
+                return stored ? JSON.parse(stored) : null;
+            } catch (e) {
+                console.error("Error loading legacy projects from localStorage:", e);
+                return null;
+            }
+        };
+
+        const getStructureFromDB = async (client) => {
+            if (!client) return null;
+            try {
+                const { data, error } = await client
+                    .from(STRUCTURE_TABLE)
+                    .select('structure_map')
+                    .eq('id', STRUCTURE_ROW_ID)
+                    .single();
+
+                // PGRST116 means 'no row found' (which is expected if it's the first time)
+                if (error && error.code !== 'PGRST116') { 
+                    console.warn("DB Structure Fetch Warning:", error.message);
+                }
+                return data?.structure_map || null;
+
+            } catch (e) {
+                console.error("Error fetching structure from DB:", e);
+                return null;
+            }
+        };
+
+        const saveStructureToDB = async (client, map) => {
+            if (!client) return false;
+            try {
+                // Use upsert to insert if not exists, or update if exists
+                const { error } = await client
+                    .from(STRUCTURE_TABLE)
+                    .upsert({ id: STRUCTURE_ROW_ID, structure_map: map }, { onConflict: 'id' });
+
+                if (error) {
+                    console.error("Error saving structure to DB:", error);
+                    return false;
+                }
+                return true;
+            } catch (e) {
+                console.error("Error saving structure to DB:", e);
+                return false;
+            }
+        };
+        
+        // Updated to accept count for reporting
+        const clearAllSnagsFromDB = async (client, count) => {
+            if (!client) {
+                console.error('Client not ready for clearing database.');
+                return;
+            }
+            
+            // Delete all rows in the snags table using a dummy condition that is always true for existing IDs
+            const { error } = await client
+                .from(TABLE_NAME)
+                .delete()
+                .neq('id', '0'); 
+
+            if (error) {
+                console.error("Error clearing all snags:", error);
+                // Set status here, but the fetchSnags will overwrite it if successful
+            } else {
+                // Status is set after fetchSnags completes to confirm data is empty
+            }
+        };
+
+
         const renderMarkdownLinks = (text) => {
             if (!text) return { __html: '' };
             const regex = /\[([^\]]+)\]\(([^)]+)\)/g;
@@ -179,41 +252,43 @@
             return { __html: htmlText };
         };
 
-        const loadProjects = () => {
-            try {
-                const stored = localStorage.getItem(CATEGORY_STORAGE_KEY);
-                return stored ? JSON.parse(stored) : INITIAL_PROJECTS;
-            } catch (e) {
-                console.error("Error loading projects from localStorage:", e);
-                return INITIAL_PROJECTS;
-            }
-        };
-
-        const saveProjects = (map) => {
-            try {
-                localStorage.setItem(CATEGORY_STORAGE_KEY, JSON.stringify(map));
-            } catch (e) {
-                console.error("Error saving projects to localStorage:", e);
-            }
-        };
-
 
         function Tracker() {
             const [snags, setSnags] = useState([]);
             
-            // Structure Management State
-            const [allGroupsMap, setAllGroupsMap] = useState(loadProjects);
+            // Structure Management State: Initialized to empty map, actual loading happens in useEffect
+            const [allGroupsMap, setAllGroupsMap] = useState({});
             const allProjects = useMemo(() => Object.keys(allGroupsMap).sort(), [allGroupsMap]);
 
-            // UI State for the navigation: defaults set in useEffect
-            const [selectedProject, setSelectedProject] = useState(allProjects[0] || '');
+            // UI State for the navigation
+            const [selectedProject, setSelectedProject] = useState('');
             const [selectedGroup, setSelectedGroup] = useState('');
             
             // MOBILE State: 'projects', 'groups', 'items'
             const [activePanel, setActivePanel] = useState('projects'); 
-            // Check for desktop size on load and resize
             const [isDesktop, setIsDesktop] = useState(window.innerWidth >= 1024);
             
+            // System State
+            const [status, setStatus] = useState('Awaiting connection...');
+            const [supabaseClient, setSupabaseClient] = useState(null);
+            
+            // Modals and Forms
+            const [modal, setModal] = useState(null); 
+            const [linkModal, setLinkModal] = useState(null); 
+            const [isAddSnagModalOpen, setIsAddSnagModalOpen] = useState(false); 
+            const [viewingPhoto, setViewingPhoto] = useState(null);
+            const [newProjectCategory, setNewProjectCategory] = useState('');
+            const [newProjectGroup, setNewProjectGroup] = useState('');
+            const [editingSnagId, setEditingSnagId] = useState(null);
+            const [editingSnagText, setEditingSnagText] = useState('');
+            const [editingProjectCategory, setEditingProjectCategory] = useState('');
+            const [editingProjectGroup, setEditingProjectGroup] = useState('');
+            
+            
+            const totalSnagsCount = snags.length;
+            const isClearDbVisible = allProjects.length === 0 && !!supabaseClient;
+
+
             useEffect(() => {
                 const handleResize = () => setIsDesktop(window.innerWidth >= 1024);
                 window.addEventListener('resize', handleResize);
@@ -221,32 +296,11 @@
             }, []);
 
 
-            // Modal States
-            const [modal, setModal] = useState(null); // Used for confirm/structure/status_view
-            const [linkModal, setLinkModal] = useState(null); // Used for link insertion
-            const [isAddSnagModalOpen, setIsAddSnagModalOpen] = useState(false); // Used for adding new items
-            const [viewingPhoto, setViewingPhoto] = useState(null);
-            
-            // New Item Form State (initialized to first available values)
-            const [newProjectCategory, setNewProjectCategory] = useState(allProjects[0] || '');
-            const [newProjectGroup, setNewProjectGroup] = useState(allGroupsMap[allProjects[0]]?.[0] || '');
-
-            // Editing Item State 
-            const [editingSnagId, setEditingSnagId] = useState(null);
-            const [editingSnagText, setEditingSnagText] = useState('');
-            const [editingProjectCategory, setEditingProjectCategory] = useState('');
-            const [editingProjectGroup, setEditingProjectGroup] = useState('');
-
-            // System State
-            const [status, setStatus] = useState('Awaiting connection...');
-            const [supabaseClient, setSupabaseClient] = useState(null);
-            
-
             // --- SUPABASE INITIALIZATION & LISTENER ---
 
             useEffect(() => {
-                if (SUPABASE_URL.includes('PASTE_') || SUPABASE_ANON_KEY.includes('PASTE_')) {
-                    setStatus('Error: Supabase keys are missing. Please enter them in the CONFIGURATION section.');
+                if (SUPABASE_ANON_KEY.includes('PASTE_')) {
+                    setStatus('Error: Supabase ANONYMOUS KEY is missing. Please enter it in the CONFIGURATION section.');
                     return;
                 }
                 
@@ -263,35 +317,62 @@
             const fetchSnags = useCallback(async (client) => {
                 if (!client) return;
 
-                setStatus('Fetching data...');
+                setStatus('Fetching structure and data...');
+                
+                // --- 1. Fetch Structure from DB (or migrate if necessary) ---
+                let structureMap = await getStructureFromDB(client); 
+                
+                if (!structureMap) {
+                    // Try to migrate from old local storage
+                    const localData = loadLegacyProjects();
+                    if (localData && Object.keys(localData).length > 0) {
+                        structureMap = localData;
+                        console.log("Migrating local structure to Supabase...");
+                        setStatus('Migrating project structure...');
+                    } else {
+                        // Use the empty template for a blank canvas start if no data is found locally or in DB
+                        structureMap = INITIAL_PROJECTS;
+                    }
+
+                    // Upload the final chosen structure (local data or template) to the DB for the first time
+                    if (await saveStructureToDB(client, structureMap)) {
+                        // Clear local storage once successfully migrated/initialized to prevent future attempts
+                        localStorage.removeItem(CATEGORY_STORAGE_KEY);
+                        console.log("Project structure initialized in Supabase.");
+                    }
+                }
+                
+                // Set the current state map
+                setAllGroupsMap(structureMap);
+
+
+                // --- 2. Fetch Snags ---
                 const { data, error } = await client
                     .from(TABLE_NAME)
                     .select('*')
                     .order('created_at', { ascending: false });
 
                 if (error) {
-                    console.error("Fetch Error:", error);
+                    console.error("Fetch Snags Error:", error);
                     setStatus(`Error fetching data: ${error.message}`);
                     return;
                 }
 
                 setSnags(data);
-                setStatus(`Sync successful. ${data.length} items.`);
+                setStatus(`Sync successful. ${data.length} items. Structure synced.`);
 
-                const projects = Object.keys(allGroupsMap).sort();
+                // --- 3. Update Selections and Defaults ---
+                const projects = Object.keys(structureMap).sort();
                 
-                // --- Default Selection Logic ---
                 let projectToSelect = selectedProject;
                 let groupToSelect = selectedGroup;
 
-                // 1. If currently selected project is invalid or null, select the first available one
                 if (!projectToSelect || !projects.includes(projectToSelect)) {
                     projectToSelect = projects[0] || '';
                 } 
 
-                // 2. If a valid project is now selected, ensure the selected group is valid
                 if (projectToSelect) {
-                    const currentGroups = allGroupsMap[projectToSelect] || [];
+                    const currentGroups = structureMap[projectToSelect] || [];
                     if (!groupToSelect || !currentGroups.includes(groupToSelect)) {
                         groupToSelect = currentGroups[0] || '';
                     }
@@ -301,31 +382,43 @@
 
                 setSelectedProject(projectToSelect);
                 setSelectedGroup(groupToSelect);
-                // --- End Default Selection Logic ---
-
-                // Set new snag modal defaults here too
+                
                 const firstProj = projects[0] || '';
                 setNewProjectCategory(firstProj);
-                setNewProjectGroup(allGroupsMap[firstProj]?.[0] || '');
+                setNewProjectGroup(structureMap[firstProj]?.[0] || '');
 
-            }, [allGroupsMap, selectedProject, selectedGroup]); 
+            }, [selectedProject, selectedGroup]); 
+            // Dependency 'allGroupsMap' removed because we are setting it here.
 
             useEffect(() => {
                 if (!supabaseClient) return;
                 
                 fetchSnags(supabaseClient);
 
-                const subscription = supabaseClient
+                // Listen to Snags table changes
+                const snagSubscription = supabaseClient
                     .channel('public:snags_updates')
                     .on('postgres_changes', { event: '*', schema: 'public', table: TABLE_NAME }, payload => {
-                        // Rely on the subscription for general updates
                         fetchSnags(supabaseClient);
                     })
                     .subscribe();
 
+                // Listen to Structure table changes (for multi-user sync)
+                const structureSubscription = supabaseClient
+                    .channel('public:structure_updates')
+                    .on('postgres_changes', { event: '*', schema: 'public', table: STRUCTURE_TABLE }, payload => {
+                        console.log("Structure updated in DB, re-fetching...");
+                        fetchSnags(supabaseClient);
+                    })
+                    .subscribe();
+
+
                 return () => {
-                    if (subscription) {
-                        supabaseClient.removeChannel(subscription);
+                    if (snagSubscription) {
+                        supabaseClient.removeChannel(snagSubscription);
+                    }
+                    if (structureSubscription) {
+                         supabaseClient.removeChannel(structureSubscription);
                     }
                 };
             }, [supabaseClient, fetchSnags]);
@@ -334,53 +427,92 @@
             // --- STRUCTURE MANAGEMENT (PROJECTS & GROUPS) ---
 
             const structureAction = (type, action, currentName = '', parentProject = '') => {
-                setModal({
-                    type: 'structure',
-                    actionType: action, // 'add', 'edit', 'delete'
-                    structureType: type, // 'project', 'group'
-                    currentName: currentName,
-                    parentProject: parentProject,
+                
+                const handleStructureChange = async (newName) => {
+                    const newMap = JSON.parse(JSON.stringify(allGroupsMap));
+                    let shouldResetSelection = false;
                     
-                    handler: (newName) => {
-                        const newMap = JSON.parse(JSON.stringify(allGroupsMap));
-                        
-                        if (type === 'project') {
-                            if (action === 'add' && newName) {
-                                newMap[newName] = [];
-                            } else if (action === 'edit' && newName && newName !== currentName) {
-                                newMap[newName] = newMap[currentName] || [];
-                                delete newMap[currentName];
-                            } else if (action === 'delete') {
-                                delete newMap[currentName];
-                                // Force selection update on delete
-                                setSelectedProject('');
-                                setSelectedGroup('');
+                    if (type === 'project') {
+                        if (action === 'add' && newName) {
+                            newMap[newName] = [];
+                        } else if (action === 'edit' && newName && newName !== currentName) {
+                            newMap[newName] = newMap[currentName] || [];
+                            delete newMap[currentName];
+                            if (selectedProject === currentName) {
+                                setSelectedProject(newName); // Keep the new selection
                             }
-                        } else if (type === 'group' && parentProject) {
-                            let groups = newMap[parentProject] || [];
-                            
-                            if (action === 'add' && newName) {
-                                if (!groups.includes(newName)) groups.push(newName);
-                            } else if (action === 'edit' && newName && newName !== currentName) {
-                                const index = groups.indexOf(currentName);
-                                if (index !== -1) groups[index] = newName;
-                            } else if (action === 'delete') {
-                                newMap[parentProject] = groups.filter(s => s !== currentName);
-                                // Force group update on delete
-                                if (currentName === selectedGroup) {
-                                    setSelectedGroup('');
-                                }
-                            }
-                            // Sort for cleanliness
-                            newMap[parentProject].sort();
+                        } else if (action === 'delete') {
+                            delete newMap[currentName];
+                            // Force selection update on delete
+                            setSelectedProject('');
+                            setSelectedGroup('');
+                            shouldResetSelection = true;
                         }
+                    } else if (type === 'group' && parentProject) {
+                        let groups = newMap[parentProject] || [];
                         
-                        setAllGroupsMap(newMap);
-                        saveProjects(newMap);
-                        // Trigger re-fetch to update defaults and filters
-                        fetchSnags(supabaseClient); 
+                        if (action === 'add' && newName) {
+                            if (!groups.includes(newName)) groups.push(newName);
+                        } else if (action === 'edit' && newName && newName !== currentName) {
+                            const index = groups.indexOf(currentName);
+                            if (index !== -1) groups[index] = newName;
+                            if (selectedGroup === currentName) {
+                                setSelectedGroup(newName); // Keep the new selection
+                            }
+                        } else if (action === 'delete') {
+                            newMap[parentProject] = groups.filter(s => s !== currentName);
+                            // Force group update on delete
+                            if (currentName === selectedGroup) {
+                                setSelectedGroup('');
+                                shouldResetSelection = true;
+                            }
+                        }
+                        // Sort for cleanliness
+                        newMap[parentProject].sort();
                     }
-                });
+                    
+                    // 1. Update local state immediately for responsiveness
+                    setAllGroupsMap(newMap);
+                    
+                    // 2. Save to database
+                    setStatus('Saving structure to database...');
+                    const success = await saveStructureToDB(supabaseClient, newMap);
+                    
+                    if (!success) {
+                        setStatus('Error: Failed to save project structure to database.');
+                    } else {
+                        setStatus('Structure saved. Syncing...');
+                    }
+                    
+                    // 3. Trigger re-fetch to ensure all components are synced and filters are reset correctly
+                    if (shouldResetSelection) {
+                         fetchSnags(supabaseClient);
+                    }
+                }
+
+                // If deleting, show the confirm modal first
+                if (action === 'delete') {
+                    const structureName = type === 'group' ? 'Room' : 'Project';
+                    const message = `Are you sure you want to delete the ${structureName.toLowerCase()} **${currentName}**? 
+                                    This will permanently remove it from the synced structure for all users. 
+                                    Note: The actual snag items in the database will NOT be deleted and will become orphaned.`;
+                    
+                    setModal({
+                        type: 'confirm',
+                        message: message,
+                        action: () => handleStructureChange(currentName) // The handler knows to delete if currentName is passed
+                    });
+                } else {
+                    // For add/edit, show the input modal
+                     setModal({
+                        type: 'structure',
+                        actionType: action, // 'add', 'edit', 'delete'
+                        structureType: type, // 'project', 'group'
+                        currentName: currentName,
+                        parentProject: parentProject,
+                        handler: handleStructureChange
+                    });
+                }
             };
 
 
@@ -401,13 +533,11 @@
                     console.error("Error adding item:", error);
                     setStatus(`Failed to add item: ${error.message}`);
                 } else {
-                    // Manually fetch to force immediate UI update
                     await fetchSnags(supabaseClient); 
                     setStatus('Item added successfully. Syncing...');
                     
-                    setIsAddSnagModalOpen(false); // Close modal on success
+                    setIsAddSnagModalOpen(false); 
 
-                    // On mobile, automatically move to the item list view after adding
                     if (!isDesktop) {
                         setActivePanel('items');
                     }
@@ -449,15 +579,30 @@
                 }
             };
 
+            const handleClearDatabase = () => {
+                if (!supabaseClient) {
+                    setStatus('Error: Cannot connect. Supabase client is not ready.');
+                    return;
+                }
+                
+                setModal({
+                    type: 'confirm',
+                    message: `Are you sure you want to delete **ALL ${totalSnagsCount}** items from the database? This is permanent and only recommended if you have orphaned entries.`,
+                    action: (client) => {
+                        clearAllSnagsFromDB(client, totalSnagsCount)
+                            .then(() => setStatus(`Successfully cleared ALL ${totalSnagsCount} project items (snags) from the database.`))
+                            .catch(e => setStatus(`Database clear failed: ${e.message}`));
+                    }
+                });
+            };
+
 
             // --- NAVIGATION AND FILTERING ---
 
             const handleProjectSelect = (project) => {
                 setSelectedProject(project);
-                // Reset group to the first group of the newly selected project
                 const newGroups = allGroupsMap[project] || [];
                 setSelectedGroup(newGroups[0] || '');
-                // On mobile, move to the groups panel
                 if (!isDesktop) {
                     setActivePanel('groups');
                 }
@@ -465,7 +610,6 @@
 
             const handleGroupSelect = (group) => {
                 setSelectedGroup(group);
-                // On mobile, move to the items panel
                 if (!isDesktop) {
                     setActivePanel('items');
                 }
@@ -481,38 +625,38 @@
                 }
             };
 
-            // Filtered snags based on current state
             const filteredSnags = useMemo(() => {
-                // If either project or group is not set (e.g., on first load with no data), show nothing
+                // If there are no projects, and nothing is selected, show ALL snags (orphaned list)
+                if (allProjects.length === 0) {
+                     return snags.sort((a, b) => {
+                        if (a.status === 'open' && b.status === 'closed') return -1;
+                        if (a.status === 'closed' && b.status === 'open') return 1;
+                        return new Date(b.created_at) - new Date(a.created_at);
+                    });
+                }
+
+
                 if (!selectedProject || !selectedGroup) return [];
 
                 let filtered = snags;
 
-                // 1. Filter by Project (Category) - mandatory filter
                 filtered = filtered.filter(snag => (snag.header_category || 'Uncategorized') === selectedProject);
-                
-                // 2. Filter by Group (Subcategory/Location) - mandatory filter
                 filtered = filtered.filter(snag => (snag.room_name || 'N/A') === selectedGroup);
                 
-                // Sort: open items first, then by creation date
                 return filtered.sort((a, b) => {
                     if (a.status === 'open' && b.status === 'closed') return -1;
                     if (a.status === 'closed' && b.status === 'open') return 1;
                     return new Date(b.created_at) - new Date(a.created_at);
                 });
 
-            }, [snags, selectedProject, selectedGroup]);
+            }, [snags, selectedProject, selectedGroup, allProjects.length]);
 
-            // Available groups depend on the currently selected project
             const availableGroups = useMemo(() => {
-                // Show groups defined under the selected project
                 return selectedProject ? (allGroupsMap[selectedProject] || []) : [];
             }, [selectedProject, allGroupsMap]);
 
 
-            // Centralized function to inject link text into the editing snag field
             const injectLink = (markdownLink, target) => {
-                // Only used for the EDIT input in this setup.
                 if (target === 'edit') {
                     setEditingSnagText(prev => prev.trim() + ' ' + markdownLink + ' ');
                 }
@@ -520,26 +664,25 @@
             };
 
 
-            // NEW HANDLER FOR THE HEADER '+' BUTTON
             const handleAddItemClick = () => {
-                // 1. Update the New Snag Modal form state to reflect the current view
+                if (allProjects.length === 0) {
+                    setStatus('Please add a Project first before adding items.');
+                    return;
+                }
+                
                 if (selectedProject) {
                     setNewProjectCategory(selectedProject);
                     
-                    // Only set group if a group is actually selected
                     if (selectedGroup) {
                         setNewProjectGroup(selectedGroup);
                     } else {
-                        // If no group is selected (but project is), default to the first group
                         const defaultGroup = allGroupsMap[selectedProject]?.[0] || '';
                         setNewProjectGroup(defaultGroup);
                     }
                 }
-                // 2. Open the modal
                 setIsAddSnagModalOpen(true);
             };
 
-            // Handler called by AddSnagModal on submission
             const addSnag = (snagText, project, group) => {
                 if (!snagText.trim() || !project || !group) {
                     setStatus('Error: Missing item text, project, or group.');
@@ -547,11 +690,10 @@
                 }
 
                 const newSnagData = {
-                    header_category: project, // Stored as category
-                    room_name: group,         // Stored as room_name
+                    header_category: project, 
+                    room_name: group,         
                     text: snagText.trim(),
                 };
-                // Call the DB wrapper
                 addNewSnagToDB(newSnagData);
             };
 
@@ -589,7 +731,6 @@
             // --- MODAL COMPONENTS ---
 
             const AddSnagModal = ({ isOpen, onClose, onAddSnag, setLinkModal, allGroupsMap, newProjectCategory, setNewProjectCategory, newProjectGroup, setNewProjectGroup }) => {
-                // Local state for the text input to prevent focus loss
                 const [snagText, setSnagText] = useState(''); 
 
                 if (!isOpen) return null;
@@ -598,7 +739,6 @@
                 const availableGroupsForProject = allGroupsMap[newProjectCategory] || [];
                 const canSubmit = snagText.trim() && newProjectCategory && newProjectGroup;
 
-                // Function to inject link text into this local state
                 const injectLocalLink = (markdownLink) => {
                     setSnagText(prev => prev.trim() + ' ' + markdownLink + ' ');
                     setLinkModal(null);
@@ -606,23 +746,21 @@
 
                 const handleLinkClick = (e) => {
                     e.preventDefault();
-                    // Open the link modal, passing the custom injection function
                     setLinkModal({ 
                         type: 'link', 
                         target: 'new',
-                        injectFn: injectLocalLink // Pass the function to update local state
+                        injectFn: injectLocalLink 
                     });
                 };
 
                 const handleSubmit = (e) => {
                     e.preventDefault();
                     onAddSnag(snagText, newProjectCategory, newProjectGroup);
-                    // Clear local state regardless of success (parent handles the modal close)
                     setSnagText(''); 
                 };
 
                 const closeHandler = () => {
-                    setSnagText(''); // Clear local text on close
+                    setSnagText(''); 
                     onClose();
                 }
 
@@ -634,13 +772,11 @@
                                 <button type="button" onClick={closeHandler} className="p-1 text-slate-500 hover:text-slate-800 rounded-full"><X className="w-5 h-5" /></button>
                             </div>
                             
-                            {/* Project and Room Selectors */}
                             <div className="flex space-x-3 mb-4">
                                 <select
                                     value={newProjectCategory}
                                     onChange={(e) => {
                                         setNewProjectCategory(e.target.value);
-                                        // Auto-select first group/room of the newly chosen project
                                         const newGroups = allGroupsMap[e.target.value] || [];
                                         setNewProjectGroup(newGroups[0] || '');
                                     }}
@@ -666,7 +802,6 @@
                                 </select>
                             </div>
 
-                            {/* Item Text Area */}
                             <label className="block text-sm font-medium text-slate-700 mb-1">Item Details</label>
                             <textarea
                                 rows="3"
@@ -703,11 +838,13 @@
                 if (!modal) return null;
 
                 const handleAction = () => {
-                    modal.action();
-                    setModal(null); // Use setModal(null) here instead of closeModal to avoid calling it multiple times
+                    // Action handler can be sync or async and might need the client (e.g. clearAllSnagsFromDB)
+                    // The action must handle setting status/closing the modal itself, or we close it here.
+                    modal.action(supabaseClient); 
+                    setModal(null); 
                 };
 
-                // Confirmation Modal (Delete Snag Item)
+                // Confirmation Modal (Delete Snag Item / Delete Structure Item / Clear DB)
                 if (modal.type === 'confirm') {
                     return (
                         <div className="modal" onClick={closeModal}>
@@ -716,7 +853,7 @@
                                     <Trash className="w-6 h-6 text-red-500"/>
                                     <h3 className="text-xl font-bold text-slate-800">Confirm Deletion</h3>
                                 </div>
-                                <p className="text-slate-600 mb-8">{modal.message}</p>
+                                <p className="text-slate-600 mb-8" dangerouslySetInnerHTML={{__html: modal.message}}></p>
                                 <div className="flex justify-end space-x-3">
                                     <button
                                         onClick={closeModal}
@@ -728,7 +865,7 @@
                                         onClick={handleAction}
                                         className="px-6 py-2.5 bg-red-600 text-white font-semibold rounded-xl hover:bg-red-700 transition shadow-md"
                                     >
-                                        Delete Item
+                                        Confirm Deletion
                                     </button>
                                 </div>
                             </div>
@@ -736,7 +873,7 @@
                     );
                 }
                 
-                // Status View Modal (New for long errors/status)
+                // Status View Modal
                 if (modal.type === 'status_view') {
                     return (
                         <div className="modal" onClick={closeModal}>
@@ -744,7 +881,6 @@
                                 <div className="flex items-center space-x-3 mb-4 border-b pb-3 border-slate-100">
                                     <h3 className="text-xl font-bold text-slate-800">System Status / Error Log</h3>
                                 </div>
-                                {/* Added whitespace-pre-wrap and break-words for readability of long messages */}
                                 <p className="text-slate-600 whitespace-pre-wrap break-words max-h-96 overflow-y-auto mb-4 p-2 bg-slate-50 rounded-lg border border-slate-200">{modal.message}</p>
                                 <div className="flex justify-end">
                                     <button
@@ -764,71 +900,35 @@
                 if (modal.type === 'structure') {
                     const [inputValue, setInputValue] = useState(modal.currentName || '');
                     const isAdd = modal.actionType === 'add';
-                    // Use 'Room' for groups, otherwise use 'Project'
                     const structureName = modal.structureType === 'group' ? 'Room' : 'Project';
                     const title = isAdd ? `Add New ${structureName}` : `Rename ${structureName}`;
-                    const icon = isAdd ? Plus : Edit;
-                    const actionButtonText = isAdd ? 'Add' : 'Save';
-
+                    
                     const handleSubmit = (e) => {
                         e.preventDefault();
                         if (inputValue.trim()) {
                             modal.handler(inputValue.trim());
-                            closeModal();
+                            setModal(null);
+                        } else {
+                            setStatus(`Error: ${structureName} name cannot be empty.`);
                         }
                     };
-                    
-                    if (modal.actionType === 'delete') {
-                        // Handle Delete Confirmation (Project or Group)
-                        return (
-                            <div className="modal" onClick={closeModal}>
-                                <div className="modal-content transform transition-all" onClick={(e) => e.stopPropagation()}>
-                                    <div className="flex items-center space-x-3 mb-4 border-b pb-3 border-slate-100">
-                                        <Trash className="w-6 h-6 text-red-500"/>
-                                        <h3 className="text-xl font-bold text-slate-800">Confirm Deletion</h3>
-                                    </div>
-                                    <p className="text-slate-600 mb-8">
-                                        Are you sure you want to delete the {structureName.toLowerCase()} **{modal.currentName}**? 
-                                        {modal.structureType === 'project' ? ' This will also remove all associated Rooms and their snags.' : ' This will remove the room, but snags attached to it may persist in the database until manually deleted.'} 
-                                        This action cannot be undone.
-                                    </p>
-                                    <div className="flex justify-end space-x-3">
-                                        <button
-                                            onClick={closeModal}
-                                            className="px-6 py-2.5 bg-slate-100 text-slate-700 font-semibold rounded-xl hover:bg-slate-200 transition shadow-sm"
-                                        >
-                                            Cancel
-                                        </button>
-                                        <button
-                                            onClick={() => { modal.handler(modal.currentName); closeModal(); }}
-                                            className="px-6 py-2.5 bg-red-600 text-white font-semibold rounded-xl hover:bg-red-700 transition shadow-md"
-                                        >
-                                            Delete {structureName}
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                        );
-                    }
 
                     return (
                         <div className="modal" onClick={closeModal}>
                             <form className="modal-content" onClick={(e) => e.stopPropagation()} onSubmit={handleSubmit}>
                                 <div className="flex items-center space-x-3 mb-4 border-b pb-3 border-slate-100">
-                                    {icon({ className: "w-6 h-6 text-primary" })}
+                                    <Edit className="w-6 h-6 text-primary"/>
                                     <h3 className="text-xl font-bold text-slate-800">{title}</h3>
                                 </div>
-                                
-                                <label className="block text-sm font-medium text-slate-700 mb-1">Name</label>
+                                <label className="block text-sm font-medium text-slate-700 mb-1">{structureName} Name</label>
                                 <input
                                     type="text"
-                                    placeholder={`Enter new ${structureName.toLowerCase()} name...`}
                                     value={inputValue}
                                     onChange={(e) => setInputValue(e.target.value)}
-                                    className="w-full p-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary mb-6"
+                                    placeholder={isAdd ? `e.g., ${structureName === 'Project' ? 'Site A' : 'Kitchen'}` : modal.currentName}
+                                    className="w-full p-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary mb-6 text-base"
                                     required
                                 />
-
                                 <div className="flex justify-end space-x-3">
                                     <button
                                         type="button"
@@ -839,79 +939,65 @@
                                     </button>
                                     <button
                                         type="submit"
-                                        className="px-6 py-2.5 bg-primary text-white font-semibold rounded-xl hover:bg-blue-900 transition shadow-md disabled:opacity-50"
-                                        disabled={!inputValue.trim()}
+                                        className="px-6 py-2.5 bg-primary text-white font-semibold rounded-xl hover:bg-blue-700 transition shadow-md"
                                     >
-                                        {actionButtonText}
+                                        {isAdd ? 'Add' : 'Save'} {structureName}
                                     </button>
                                 </div>
                             </form>
                         </div>
                     );
                 }
-
-                // Link Modal
+                
+                // Link Injection Modal
                 if (modal.type === 'link') {
                     const [linkText, setLinkText] = useState('');
-                    const [linkUrl, setLinkUrl] = useState('');
-
+                    const [url, setUrl] = useState('');
+                    
                     const handleSubmit = (e) => {
                         e.preventDefault();
-                        if (linkText.trim() && linkUrl.trim()) {
-                            const markdownLink = `[${linkText.trim()}](${linkUrl.trim()})`;
-                            
-                            // Check if the link modal provided a custom injection function (for the new snag modal)
-                            if (modal.target === 'new' && modal.injectFn) {
-                                modal.injectFn(markdownLink);
-                            } else if (modal.target === 'edit') {
-                                // Default path for editing existing snag
-                                injectLink(markdownLink, 'edit'); 
-                            }
-                            
-                            closeModal();
+                        if (linkText.trim() && url.trim()) {
+                            const markdownLink = `[${linkText.trim()}](${url.trim()})`;
+                            modal.injectFn(markdownLink);
+                            setLinkModal(null);
+                        } else {
+                            setStatus('Error: Both link text and URL are required.');
                         }
                     };
 
                     return (
-                        <div className="modal" onClick={closeModal}>
+                        <div className="modal" onClick={() => setLinkModal(null)}>
                             <form className="modal-content" onClick={(e) => e.stopPropagation()} onSubmit={handleSubmit}>
-                                <div className="flex items-center space-x-3 mb-4 border-b pb-3 border-slate-100">
-                                    <LinkIcon className="w-6 h-6 text-primary"/>
-                                    <h3 className="text-xl font-bold text-slate-800">Embed Link</h3>
-                                </div>
-                                
-                                <label className="block text-sm font-medium text-slate-700 mb-1">Link Text</label>
+                                <h3 className="text-xl font-bold text-slate-800 mb-4 border-b pb-3 border-slate-100">Embed Link</h3>
+                                <label className="block text-sm font-medium text-slate-700 mb-1">Link Text (What users click)</label>
                                 <input
                                     type="text"
-                                    placeholder="e.g., replacement sink on Amazon"
                                     value={linkText}
                                     onChange={(e) => setLinkText(e.target.value)}
-                                    className="w-full p-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary mb-4"
+                                    placeholder="e.g., Click here for spec sheet"
+                                    className="w-full p-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary mb-4 text-base"
                                     required
                                 />
-
-                                <label className="block text-sm font-medium text-slate-700 mb-1">Full URL</label>
+                                <label className="block text-sm font-medium text-slate-700 mb-1">URL (The actual link)</label>
                                 <input
                                     type="url"
-                                    placeholder="e.g., https://www.amazon.com/sink-model-xyz"
-                                    value={linkUrl}
-                                    onChange={(e) => setLinkUrl(e.target.value)}
-                                    className="w-full p-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary mb-6"
+                                    value={url}
+                                    onChange={(e) => setUrl(e.target.value)}
+                                    placeholder="https://example.com/document"
+                                    className="w-full p-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary mb-6 text-base"
                                     required
                                 />
-
                                 <div className="flex justify-end space-x-3">
                                     <button
                                         type="button"
-                                        onClick={closeModal}
+                                        onClick={() => setLinkModal(null)}
                                         className="px-6 py-2.5 bg-slate-100 text-slate-700 font-semibold rounded-xl hover:bg-slate-200 transition shadow-sm"
                                     >
                                         Cancel
                                     </button>
                                     <button
                                         type="submit"
-                                        className="px-6 py-2.5 bg-primary text-white font-semibold rounded-xl hover:bg-blue-900 transition shadow-md disabled:opacity-50"
-                                        disabled={!linkText.trim() || !linkUrl.trim()}
+                                        className="px-6 py-2.5 bg-blue-500 text-white font-semibold rounded-xl hover:bg-blue-600 transition shadow-md"
                                     >
                                         Insert Link
                                     </button>
@@ -920,413 +1006,431 @@
                         </div>
                     );
                 }
-
+                
                 return null;
             };
 
-            // --- SNAG ITEM COMPONENT ---
-            const SnagItem = ({ snag }) => {
-                const isEditing = editingSnagId === snag.id;
+            // --- PANEL COMPONENTS ---
 
-                const statusColor = snag.status === 'closed' ? 'bg-status-closed/10 text-status-closed border-status-closed' : 'bg-status-open/10 text-status-open border-status-open';
-                const buttonBg = snag.status === 'closed' ? 'bg-status-closed hover:bg-green-600' : 'bg-status-open hover:bg-amber-600';
+            const SnagItem = ({ snag, startEdit, toggleSnagStatus, handleDeleteRequest, editingSnagId, editingSnagText, setEditingSnagText, saveEdit, allGroupsMap, editingProjectCategory, setEditingProjectCategory, editingProjectGroup, setEditingProjectGroup, setLinkModal, injectLink, selectedProject, selectedGroup }) => {
+                const isEditing = snag.id === editingSnagId;
+                const isClosed = snag.status === 'closed';
                 
-                const timeAgo = (dateString) => {
-                    const seconds = Math.floor((new Date() - new Date(dateString)) / 1000);
-                    let interval = seconds / 31536000;
-                    if (interval > 1) return Math.floor(interval) + "y ago";
-                    interval = seconds / 2592000;
-                    if (interval > 1) return Math.floor(interval) + "m ago";
-                    interval = seconds / 86400;
-                    if (interval > 1) return Math.floor(interval) + "d ago";
-                    interval = seconds / 3600;
-                    if (interval > 1) return Math.floor(interval) + "h ago";
-                    interval = seconds / 60;
-                    if (interval > 1) return Math.floor(interval) + "min ago";
-                    return "just now";
-                }
-
-                const handlePhotoUpload = (event) => {
-                    const file = event.target.files[0];
-                    if (!file) return;
-                    
-                    // Supabase has a 4MB limit on text/json fields. Base64 can grow large, so check size.
-                    if (file.size > 3 * 1024 * 1024) { // Roughly 3MB limit for safety
-                        setStatus('Error: Photo file is too large (max 3MB recommended for direct storage).');
-                        // Clear the input file list to allow uploading again
-                        event.target.value = null; 
-                        return;
-                    }
-
-                    const reader = new FileReader();
-                    reader.onload = (e) => {
-                        updateSnagInDB(snag.id, { photo_data: e.target.result });
-                    };
-                    reader.readAsDataURL(file);
+                const allProjs = Object.keys(allGroupsMap).sort();
+                const availableGroupsForProject = allGroupsMap[editingProjectCategory] || [];
+                
+                const handleLinkClick = (e) => {
+                    e.preventDefault();
+                    setLinkModal({ 
+                        type: 'link', 
+                        target: 'edit',
+                        injectFn: (markdownLink) => injectLink(markdownLink, 'edit')
+                    });
                 };
 
                 return (
-                    <div className="snag-card p-4 rounded-xl bg-white border border-slate-200 transition duration-300 mb-4">
-                        
-                        {/* Tags and Status */}
-                        <div className="flex items-center justify-between mb-2">
-                            <div className="flex flex-wrap items-center gap-2">
-                                <span className="text-xs font-bold uppercase tracking-wider text-slate-600 bg-slate-100 px-2 py-0.5 rounded-full">
-                                    {snag.header_category || 'N/A'} / {snag.room_name || 'N/A'}
-                                </span>
-                                <span className={`text-xs font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border ${statusColor}`}>
-                                    {snag.status === 'open' ? 'OPEN' : 'COMPLETED'}
-                                </span>
-                            </div>
-                            <span className="text-xs text-slate-400">{timeAgo(snag.created_at)}</span>
-                        </div>
-
-                        {/* Snag Text / Edit Area with Thumbnail */}
-                        <div className="pb-3 border-b border-slate-100 mb-3 flex space-x-4 items-start">
-                            {/* Thumbnail display */}
-                            {snag.photo_data && !isEditing && (
-                                <img 
-                                    src={snag.photo_data} 
-                                    alt="Thumbnail" 
-                                    className="w-16 h-16 object-cover rounded-xl shadow-md flex-shrink-0 cursor-pointer" 
-                                    onClick={() => setViewingPhoto({ data: snag.photo_data, text: snag.text })}
-                                    title="View Photo"
-                                />
-                            )}
+                    <div className={`snag-card p-4 rounded-xl mb-3 border ${isClosed ? 'bg-green-50 border-green-200' : 'bg-white border-slate-200'} transition duration-150 ease-in-out`}>
+                        <div className="flex items-start justify-between">
                             
                             <div className="flex-grow">
                                 {isEditing ? (
                                     <>
-                                        <textarea
-                                            rows="3"
-                                            value={editingSnagText}
-                                            onChange={(e) => setEditingSnagText(e.target.value)}
-                                            className="w-full text-lg font-medium p-3 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary mb-3"
-                                            placeholder="Enter item detail..."
-                                        />
-                                        <div className="flex flex-wrap space-x-2">
-                                            <input
-                                                type="text"
+                                        <div className="flex space-x-2 mb-2">
+                                            <select
                                                 value={editingProjectCategory}
                                                 onChange={(e) => setEditingProjectCategory(e.target.value)}
-                                                placeholder="Edit Project"
-                                                className="text-sm p-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-primary w-24"
-                                            />
-                                            <input
-                                                type="text"
+                                                className="p-1 border border-slate-300 rounded-lg text-sm bg-white"
+                                            >
+                                                {allProjs.map(proj => (
+                                                    <option key={proj} value={proj}>{proj}</option>
+                                                ))}
+                                            </select>
+                                            <select
                                                 value={editingProjectGroup}
                                                 onChange={(e) => setEditingProjectGroup(e.target.value)}
-                                                placeholder="Edit Room"
-                                                className="text-sm p-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-primary w-28"
-                                            />
-                                            <button
-                                                type="button"
-                                                onClick={() => setLinkModal({ type: 'link', target: 'edit' })}
-                                                className="p-2 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-lg transition text-sm flex items-center shadow-sm"
-                                                title="Add a clickable link"
+                                                className="p-1 border border-slate-300 rounded-lg text-sm bg-white"
                                             >
-                                                <LinkIcon className="w-4 h-4" />
+                                                {availableGroupsForProject.map(group => (
+                                                    <option key={group} value={group}>{group}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                        <textarea
+                                            value={editingSnagText}
+                                            onChange={(e) => setEditingSnagText(e.target.value)}
+                                            className="w-full p-2 border border-slate-300 rounded-lg text-sm focus:ring-1 focus:ring-primary mb-2"
+                                            rows="3"
+                                        />
+                                        <div className="flex justify-between items-center mt-2">
+                                            <button
+                                                onClick={handleLinkClick}
+                                                className="text-xs text-blue-500 hover:text-blue-700 font-medium flex items-center p-1 rounded-lg"
+                                            >
+                                                <LinkIcon className="w-3 h-3 mr-1"/> Embed Link
                                             </button>
+                                            <div className="space-x-2">
+                                                <button onClick={() => setEditingSnagId(null)} className="px-3 py-1 text-sm text-slate-600 bg-slate-100 rounded-xl hover:bg-slate-200">
+                                                    Cancel
+                                                </button>
+                                                <button onClick={() => saveEdit(snag.id)} className="px-3 py-1 text-sm text-white bg-accent rounded-xl hover:bg-green-600">
+                                                    Save
+                                                </button>
+                                            </div>
                                         </div>
                                     </>
                                 ) : (
-                                    <p 
-                                        className={`snag-description text-lg font-semibold break-words ${snag.status === 'closed' ? 'text-slate-500 line-through' : 'text-slate-800'}`}
-                                        dangerouslySetInnerHTML={renderMarkdownLinks(snag.text)}
-                                    />
+                                    <>
+                                        <p className={`snag-description text-sm mb-2 text-slate-800 leading-relaxed ${isClosed ? 'line-through text-slate-500' : ''}`} 
+                                           dangerouslySetInnerHTML={renderMarkdownLinks(snag.text)}></p>
+                                        
+                                        <div className="flex flex-wrap items-center space-x-2 text-xs text-slate-500 mt-1">
+                                            <span className="px-2 py-0.5 bg-slate-100 rounded-full font-medium shadow-inner">{snag.room_name}</span>
+                                            <span className="px-2 py-0.5 bg-slate-100 rounded-full font-medium shadow-inner">{snag.header_category}</span>
+                                            <span className="ml-auto text-xs italic opacity-70">
+                                                {snag.updated_at ? `Updated: ${new Date(snag.updated_at).toLocaleDateString()}` : `Created: ${new Date(snag.created_at).toLocaleDateString()}`}
+                                            </span>
+                                        </div>
+                                    </>
                                 )}
                             </div>
-                        </div>
-                        
-                        {/* Action Buttons */}
-                        <div className="flex items-center justify-between">
-                            <div className="flex space-x-3">
-                                {!isEditing && (
-                                    <label htmlFor={`photo-upload-${snag.id}`} className="cursor-pointer text-slate-600 hover:text-slate-800 text-sm font-semibold flex items-center p-1 rounded-full bg-slate-100 hover:bg-slate-200 transition">
-                                        <Camera className="w-4 h-4 mr-1" /> {snag.photo_data ? 'Replace Photo' : 'Add Photo'}
-                                        <input 
-                                            id={`photo-upload-${snag.id}`} 
-                                            type="file" 
-                                            accept="image/*" 
-                                            className="hidden" 
-                                            onChange={handlePhotoUpload}
-                                        />
-                                    </label>
-                                )}
-                            </div>
-                            
-                            <div className="flex items-center space-x-2">
-                                {isEditing ? (
+
+                            {!isEditing && (
+                                <div className="flex flex-col ml-3 space-y-2">
                                     <button 
-                                        onClick={() => saveEdit(snag.id)}
-                                        className="p-2 bg-primary hover:bg-blue-900 text-white rounded-full transition shadow-md"
-                                        title="Save Edit"
+                                        onClick={() => toggleSnagStatus(snag)} 
+                                        className={`p-2 rounded-full shadow-md transition ${isClosed ? 'bg-status-closed text-white hover:bg-green-600' : 'bg-status-open text-white hover:bg-amber-600'}`}
+                                        title={isClosed ? 'Mark as Open' : 'Mark as Closed'}
                                     >
-                                        <Check className="w-5 h-5" />
+                                        {isClosed ? <Check className="w-4 h-4"/> : <X className="w-4 h-4"/>}
                                     </button>
-                                ) : (
                                     <button 
-                                        onClick={() => startEdit(snag)}
-                                        className="p-2 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-full transition shadow-sm"
+                                        onClick={() => startEdit(snag)} 
+                                        className="p-2 bg-slate-200 text-slate-700 rounded-full hover:bg-slate-300 transition shadow-md"
                                         title="Edit Item"
                                     >
-                                        <Edit className="w-5 h-5" />
+                                        <Edit className="w-4 h-4"/>
                                     </button>
-                                )}
-                                
-                                <button 
-                                    onClick={() => toggleSnagStatus(snag)}
-                                    className={`p-2 rounded-full transition shadow-md ${buttonBg} text-white`}
-                                    title={snag.status === 'open' ? 'Mark Complete' : 'Mark Open'}
-                                >
-                                    <Check className="w-5 h-5" />
-                                </button>
-                                <button 
-                                    onClick={() => handleDeleteRequest(snag)}
-                                    className="p-2 bg-red-600 hover:bg-red-700 text-white rounded-full transition shadow-md"
-                                    title="Delete Item"
-                                >
-                                    <Trash className="w-5 h-5" />
-                                </button>
-                            </div>
+                                    <button 
+                                        onClick={() => handleDeleteRequest(snag)} 
+                                        className="p-2 bg-red-100 text-red-500 rounded-full hover:bg-red-200 transition shadow-md"
+                                        title="Delete Item"
+                                    >
+                                        <Trash className="w-4 h-4"/>
+                                    </button>
+                                </div>
+                            )}
                         </div>
                     </div>
                 );
             };
 
+            const ProjectsPanel = ({ allProjects, selectedProject, onSelectProject, structureAction, isDesktop, activePanel, isClearDbVisible, handleClearDatabase, totalSnagsCount }) => {
+                const isActive = isDesktop || activePanel === 'projects';
 
+                return (
+                    <div className={`panel projects-panel ${isActive ? 'active-panel' : 'hidden-right'} lg:w-1/4`}>
+                        <div className="p-4 border-b border-slate-200 bg-white">
+                            <h2 className="text-xl font-bold text-primary flex items-center">
+                                <LayoutGrid className="w-5 h-5 mr-2"/> Projects ({allProjects.length})
+                            </h2>
+                            <p className="text-xs text-slate-500 mt-1">Select a Project to view Rooms.</p>
+                        </div>
+                        
+                        <div className="panel-list-wrapper">
+                            {allProjects.length === 0 ? (
+                                <div className="p-4 text-center text-slate-500 pt-16">
+                                    <p className="mb-4">No projects defined yet.</p>
+                                    <button
+                                        onClick={() => structureAction('project', 'add')}
+                                        className="px-4 py-2 bg-primary text-white font-semibold rounded-xl hover:bg-blue-700 transition shadow-md text-sm"
+                                    >
+                                        <Plus className="w-4 h-4 inline-block mr-1"/> Add New Project
+                                    </button>
+                                </div>
+                            ) : (
+                                allProjects.map(project => (
+                                    <div 
+                                        key={project}
+                                        onClick={() => onSelectProject(project)}
+                                        className={`flex items-center justify-between p-3 cursor-pointer border-b hover:bg-slate-50 transition ${selectedProject === project ? 'bg-blue-50 border-blue-200 font-semibold' : 'bg-white border-slate-100'}`}
+                                    >
+                                        <span className={`truncate ${selectedProject === project ? 'text-primary' : 'text-slate-800'}`}>
+                                            {project}
+                                        </span>
+                                        <div className="flex space-x-1 ml-2">
+                                            <button 
+                                                onClick={(e) => { e.stopPropagation(); structureAction('project', 'edit', project); }}
+                                                className="p-1 text-slate-400 hover:text-blue-500 rounded-md"
+                                                title="Rename Project"
+                                            >
+                                                <Edit className="w-4 h-4"/>
+                                            </button>
+                                            <button 
+                                                onClick={(e) => { e.stopPropagation(); structureAction('project', 'delete', project); }}
+                                                className="p-1 text-slate-400 hover:text-red-500 rounded-md"
+                                                title="Delete Project"
+                                            >
+                                                <Trash className="w-4 h-4"/>
+                                            </button>
+                                        </div>
+                                    </div>
+                                ))
+                            )}
+                        </div>
+
+                        {/* Panel Footer for Add Project */}
+                        <div className={`p-4 border-t ${isClearDbVisible ? 'border-red-100' : 'border-slate-200'} bg-white`}>
+                            {allProjects.length > 0 && (
+                                <button
+                                    onClick={() => structureAction('project', 'add')}
+                                    className="w-full px-4 py-2 bg-primary text-white font-semibold rounded-xl hover:bg-blue-700 transition shadow-md text-sm mb-3"
+                                >
+                                    <Plus className="w-4 h-4 inline-block mr-1"/> Add New Project
+                                </button>
+                            )}
+
+                            {/* Conditional Clear Database Button (NEW REQUIREMENT) */}
+                            {isClearDbVisible && (
+                                <button
+                                    onClick={handleClearDatabase}
+                                    className="w-full px-4 py-2 bg-red-500 text-white font-semibold rounded-xl hover:bg-red-600 transition shadow-md flex items-center justify-center text-sm disabled:opacity-50"
+                                    title="Warning: This clears ALL snag items from the database permanently."
+                                    disabled={!supabaseClient} // Ensure connection is ready before showing/allowing click
+                                >
+                                    <Trash className="w-4 h-4 mr-1"/> Clear Orphaned Entries ({totalSnagsCount})
+                                </button>
+                            )}
+                        </div>
+                    </div>
+                );
+            };
+
+            const GroupsPanel = ({ allGroupsMap, selectedProject, selectedGroup, onSelectGroup, structureAction, isDesktop, activePanel, navigateBack }) => {
+                const isActive = isDesktop || activePanel === 'groups';
+                const availableGroups = allGroupsMap[selectedProject] || [];
+
+                return (
+                    <div className={`panel groups-panel ${isActive ? 'active-panel' : 'hidden-right'} lg:w-1/4`}>
+                        
+                        {/* Header */}
+                        <div className="p-4 border-b border-slate-200 bg-white">
+                            <div className="flex items-center">
+                                {!isDesktop && (
+                                    <button onClick={() => navigateBack('groups')} className="mr-2 p-1 text-slate-500 hover:text-slate-800 rounded-full">
+                                        <ArrowLeft className="w-5 h-5"/>
+                                    </button>
+                                )}
+                                <h3 className="text-lg font-bold text-slate-800 truncate">
+                                    {selectedProject || 'Select Project'}
+                                </h3>
+                            </div>
+                            <p className="text-xs text-slate-500 mt-1">Select a Room/Area to view items.</p>
+                        </div>
+
+                        {/* List */}
+                        <div className="panel-list-wrapper">
+                            {selectedProject && availableGroups.length === 0 ? (
+                                <div className="p-4 text-center text-slate-500 pt-16">
+                                    <p className="mb-4">No rooms defined for this project.</p>
+                                    <button
+                                        onClick={() => structureAction('group', 'add', '', selectedProject)}
+                                        className="px-4 py-2 bg-accent text-white font-semibold rounded-xl hover:bg-green-600 transition shadow-md text-sm"
+                                    >
+                                        <Plus className="w-4 h-4 inline-block mr-1"/> Add New Room
+                                    </button>
+                                </div>
+                            ) : (
+                                selectedProject && availableGroups.map(group => (
+                                    <div 
+                                        key={group}
+                                        onClick={() => onSelectGroup(group)}
+                                        className={`flex items-center justify-between p-3 cursor-pointer border-b hover:bg-slate-50 transition ${selectedGroup === group ? 'bg-green-50 border-green-200 font-semibold' : 'bg-white border-slate-100'}`}
+                                    >
+                                        <span className={`truncate ${selectedGroup === group ? 'text-accent' : 'text-slate-800'}`}>
+                                            {group}
+                                        </span>
+                                        <div className="flex space-x-1 ml-2">
+                                            <button 
+                                                onClick={(e) => { e.stopPropagation(); structureAction('group', 'edit', group, selectedProject); }}
+                                                className="p-1 text-slate-400 hover:text-blue-500 rounded-md"
+                                                title="Rename Room"
+                                            >
+                                                <Edit className="w-4 h-4"/>
+                                            </button>
+                                            <button 
+                                                onClick={(e) => { e.stopPropagation(); structureAction('group', 'delete', group, selectedProject); }}
+                                                className="p-1 text-slate-400 hover:text-red-500 rounded-md"
+                                                title="Delete Room"
+                                            >
+                                                <Trash className="w-4 h-4"/>
+                                            </button>
+                                        </div>
+                                    </div>
+                                ))
+                            )}
+                        </div>
+
+                        {/* Panel Footer for Add Group */}
+                        {selectedProject && (
+                            <div className="p-4 border-t border-slate-200 bg-white">
+                                <button
+                                    onClick={() => structureAction('group', 'add', '', selectedProject)}
+                                    className="w-full px-4 py-2 bg-accent text-white font-semibold rounded-xl hover:bg-green-600 transition shadow-md text-sm"
+                                    disabled={!selectedProject}
+                                >
+                                    <Plus className="w-4 h-4 inline-block mr-1"/> Add Room to {selectedProject}
+                                </button>
+                            </div>
+                        )}
+                    </div>
+                );
+            };
+
+            const ItemsPanel = ({ filteredSnags, selectedProject, selectedGroup, isDesktop, activePanel, navigateBack, ...snagProps }) => {
+                const isActive = isDesktop || activePanel === 'items';
+
+                const displayTitle = allProjects.length === 0 ? 'Orphaned Items (No Projects)' : `${selectedProject} - ${selectedGroup}`;
+
+                return (
+                    <div className={`panel items-panel ${isActive ? 'active-panel' : 'hidden-right'} lg:w-1/2`}>
+                        {/* Header */}
+                        <div className="p-4 border-b border-slate-200 bg-white shadow-sm">
+                            <div className="flex items-center">
+                                {!isDesktop && (
+                                    <button onClick={() => navigateBack('items')} className="mr-2 p-1 text-slate-500 hover:text-slate-800 rounded-full">
+                                        <ArrowLeft className="w-5 h-5"/>
+                                    </button>
+                                )}
+                                <h3 className="text-xl font-bold text-slate-800 truncate">
+                                    {displayTitle} ({filteredSnags.length})
+                                </h3>
+                            </div>
+                            <p className="text-xs text-slate-500 mt-1">Found {filteredSnags.filter(s => s.status === 'open').length} open items. {filteredSnags.filter(s => s.status === 'closed').length} closed.</p>
+                        </div>
+                        
+                        {/* List */}
+                        <div className="panel-list-wrapper p-4 bg-gray-50">
+                            {filteredSnags.length === 0 && (allProjects.length === 0 || (selectedProject && selectedGroup)) ? (
+                                <div className="text-center text-slate-500 pt-16">
+                                    <p className="mb-4">No items found for this selection.</p>
+                                </div>
+                            ) : filteredSnags.length === 0 && (!selectedProject || !selectedGroup) ? (
+                                <div className="text-center text-slate-500 pt-16">
+                                    <p className="mb-4">Please select a Project and Room to view items.</p>
+                                </div>
+                            ) : (
+                                filteredSnags.map(snag => (
+                                    <SnagItem key={snag.id} snag={snag} {...snagProps} />
+                                ))
+                            )}
+                        </div>
+
+                        {/* Panel Footer for Add Item */}
+                        <div className="p-4 border-t border-slate-200 bg-white">
+                            <button
+                                onClick={handleAddItemClick}
+                                className="w-full px-4 py-2 bg-blue-500 text-white font-bold rounded-xl hover:bg-blue-600 transition shadow-lg flex items-center justify-center disabled:opacity-50"
+                                disabled={!selectedProject || !selectedGroup || !supabaseClient}
+                                title={!selectedProject ? 'Select a Project and Room first' : 'Add new item'}
+                            >
+                                <Plus className="w-5 h-5 mr-1"/> Add Item to {selectedGroup || 'Room'}
+                            </button>
+                        </div>
+                    </div>
+                );
+            };
+
+            // --- MAIN RENDER ---
             return (
-                <div className="h-full flex flex-col">
+                <div className="app-container">
+                    {/* Header Bar */}
+                    <header className="flex items-center justify-between p-4 bg-white shadow-md border-b border-slate-200">
+                        <h1 className="text-2xl font-extrabold text-slate-800">
+                            Snag <span className="text-primary">Tracker</span>
+                        </h1>
+                        <div className="flex items-center space-x-3">
+                            <span 
+                                onClick={() => setModal({ type: 'status_view', message: status })}
+                                className="text-sm cursor-pointer px-3 py-1 bg-slate-100 rounded-full font-medium text-slate-600 hover:bg-slate-200 transition"
+                                title="Click to view full status log"
+                            >
+                                Status: {status.split(':')[0]}
+                            </span>
+                        </div>
+                    </header>
+                    
+                    {/* Main Content Panels */}
+                    <div className="main-content">
+                        
+                        <ProjectsPanel 
+                            allProjects={allProjects}
+                            selectedProject={selectedProject}
+                            onSelectProject={handleProjectSelect}
+                            structureAction={structureAction}
+                            isDesktop={isDesktop}
+                            activePanel={activePanel}
+                            isClearDbVisible={isClearDbVisible}
+                            handleClearDatabase={handleClearDatabase}
+                            totalSnagsCount={totalSnagsCount}
+                        />
+
+                        <GroupsPanel
+                            allGroupsMap={allGroupsMap}
+                            selectedProject={selectedProject}
+                            selectedGroup={selectedGroup}
+                            onSelectGroup={handleGroupSelect}
+                            structureAction={structureAction}
+                            isDesktop={isDesktop}
+                            activePanel={activePanel}
+                            navigateBack={navigateBack}
+                        />
+
+                        <ItemsPanel 
+                            filteredSnags={filteredSnags}
+                            selectedProject={selectedProject}
+                            selectedGroup={selectedGroup}
+                            isDesktop={isDesktop}
+                            activePanel={activePanel}
+                            navigateBack={navigateBack}
+                            startEdit={startEdit}
+                            toggleSnagStatus={toggleSnagStatus}
+                            handleDeleteRequest={handleDeleteRequest}
+                            editingSnagId={editingSnagId}
+                            editingSnagText={editingSnagText}
+                            setEditingSnagText={setEditingSnagText}
+                            saveEdit={saveEdit}
+                            allGroupsMap={allGroupsMap}
+                            editingProjectCategory={editingProjectCategory}
+                            setEditingProjectCategory={setEditingProjectCategory}
+                            editingProjectGroup={editingProjectGroup}
+                            setEditingProjectGroup={setEditingProjectGroup}
+                            setLinkModal={setLinkModal}
+                            injectLink={injectLink}
+                        />
+                        
+                    </div>
+
                     {/* Modals */}
-                    <CustomModal modal={modal} closeModal={() => setModal(null)} />
                     <AddSnagModal 
-                        isOpen={isAddSnagModalOpen} 
+                        isOpen={isAddSnagModalOpen}
                         onClose={() => setIsAddSnagModalOpen(false)}
                         onAddSnag={addSnag}
                         setLinkModal={setLinkModal}
                         allGroupsMap={allGroupsMap}
-                        newProjectCategory={newProjectCategory} 
-                        setNewProjectCategory={setNewProjectCategory} 
-                        newProjectGroup={newProjectGroup} 
+                        newProjectCategory={newProjectCategory}
+                        setNewProjectCategory={setNewProjectCategory}
+                        newProjectGroup={newProjectGroup}
                         setNewProjectGroup={setNewProjectGroup}
                     />
-
-                    {/* Photo Viewer Modal */}
-                    {viewingPhoto && (
-                        <div className="fixed inset-0 bg-black bg-opacity-90 flex items-center justify-center z-50 p-4" onClick={() => setViewingPhoto(null)}>
-                            <div className="relative max-w-4xl max-h-full">
-                                <button onClick={() => setViewingPhoto(null)} className="absolute -top-10 right-0 p-3 bg-white text-slate-800 rounded-full hover:bg-slate-100 transition shadow-lg">
-                                    <X className="w-6 h-6" />
-                                </button>
-                                <img src={viewingPhoto.data} alt={`Item photo: ${viewingPhoto.text.substring(0, 30)}...`} className="max-w-full max-h-[90vh] object-contain rounded-lg shadow-xl" />
-                                <div className="mt-3 px-3 py-1 bg-black bg-opacity-50 text-white text-sm text-center rounded-lg max-w-full overflow-hidden text-ellipsis whitespace-nowrap">
-                                    {viewingPhoto.text}
-                                </div>
-                            </div>
-                        </div>
-                    )}
-
-                    {/* Header: Clean, White, Simple */}
-                    <header className="flex-shrink-0 bg-white border-b border-slate-200 shadow-sm">
-                        <div className="max-w-full mx-auto px-4 py-3 flex justify-between items-center">
-                            <h1 className="text-2xl font-extrabold text-slate-800">🛠️ Project Tracker</h1>
-                            <div className="flex items-center space-x-3">
-                                {/* Prominent, clean 'Add New Item' button */}
-                                <button
-                                    onClick={handleAddItemClick}
-                                    className="p-3 bg-accent text-white rounded-full font-bold hover:bg-green-600 transition shadow-lg flex items-center"
-                                    title="Add New Project Item"
-                                >
-                                    <Plus className="w-5 h-5" /> 
-                                </button>
-                            </div>
-                        </div>
-                    </header>
-
-                    {/* Main Content (3 Vertical Panels) */}
-                    <div className="main-content bg-gray-50 flex-grow">
-
-                        {/* Panel 1 (Left): Projects List (Top Level Categories) */}
-                        <div 
-                            className={`panel ${!isDesktop && activePanel !== 'projects' ? 'hidden-right' : 'active-panel'}`}
-                        >
-                            <div className="p-4 border-b border-slate-200 bg-slate-50 flex justify-between items-center flex-shrink-0">
-                                <h2 className="text-base font-bold text-slate-800 flex items-center">
-                                    <LayoutGrid className="w-4 h-4 mr-2 text-primary" /> Projects
-                                </h2>
-                                {/* +Project button is here, managing structure */}
-                                <button
-                                    onClick={() => structureAction('project', 'add', '')}
-                                    className="px-3 py-1 text-white rounded-xl text-sm font-semibold transition shadow-sm bg-primary hover:bg-blue-900"
-                                    title="Add New Project"
-                                >
-                                    + Project
-                                </button>
-                            </div>
-                            
-                            <ul className="panel-list-wrapper py-2">
-                                {allProjects.length === 0 ? (
-                                    <p className="p-4 text-center text-sm text-slate-500">No projects defined. Click "+ Project" to begin.</p>
-                                ) : (
-                                    allProjects.map((proj) => {
-                                        const isActive = proj === selectedProject;
-                                        // Count needs to be based on ALL snags since we're in the project view
-                                        const count = snags.filter(s => (s.header_category || 'Uncategorized') === proj).length;
-                                        
-                                        return (
-                                            <li 
-                                                key={proj} 
-                                                onClick={() => handleProjectSelect(proj)}
-                                                className={`flex justify-between items-center p-3 cursor-pointer transition ${isActive ? 'bg-primary/10 text-primary font-bold border-l-4 border-primary' : 'hover:bg-slate-100 text-slate-700 font-medium'}`}
-                                            >
-                                                <div className="flex-grow truncate pr-2">{proj}</div>
-                                                <div className="flex items-center space-x-2">
-                                                    <Edit 
-                                                        className="w-4 h-4 text-slate-500 hover:text-primary transition" 
-                                                        onClick={(e) => { e.stopPropagation(); structureAction('project', 'edit', proj); }} 
-                                                        title="Rename Project"
-                                                    />
-                                                    <Trash 
-                                                        className="w-4 h-4 text-red-400 hover:text-red-600 transition" 
-                                                        onClick={(e) => { e.stopPropagation(); structureAction('project', 'delete', proj); }}
-                                                        title="Delete Project"
-                                                    />
-                                                    <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${isActive ? 'bg-primary text-white' : 'bg-slate-300 text-slate-700'}`}>
-                                                        {count}
-                                                    </span>
-                                                </div>
-                                            </li>
-                                        );
-                                    })
-                                )}
-                            </ul>
-                            
-                             {/* Status Indicator and Version (Fixed at bottom of Projects Panel) */}
-                            <div className="groups-footer flex flex-col flex-shrink-0 p-3 border-t border-slate-200 bg-white">
-                                {/* Made the status bar clickable to view the full message/error */}
-                                <div 
-                                    className="flex items-center mb-1 cursor-pointer" 
-                                    onClick={() => setModal({ type: 'status_view', message: status })}
-                                    title="Click to view full status/error message"
-                                >
-                                    <span className={`w-2 h-2 rounded-full mr-2 ${supabaseClient ? 'bg-green-500' : 'bg-red-500'}`}></span>
-                                    {/* Use truncate on the displayed text */}
-                                    <span className="text-xs text-slate-600 truncate max-w-[calc(100%-20px)] sm:max-w-full">{status}</span> 
-                                </div>
-                                <span className="text-[10px] text-slate-400 font-medium text-right">App Version: {APP_VERSION}</span>
-                            </div>
-                        </div>
-
-                        {/* Panel 2 (Middle): Rooms List (Subcategories) - STATICALLY RENAMED TO ROOMS */}
-                        <div 
-                            className={`panel subcategory-panel lg:border-r bg-white ${isDesktop ? '' : (activePanel === 'groups' ? 'active-panel' : 'hidden-right')}`}
-                        >
-                            <div className="p-4 border-b border-slate-200 bg-slate-50 flex items-center justify-between flex-shrink-0">
-                                <div className="flex items-center">
-                                    {!isDesktop && (
-                                        <button onClick={() => navigateBack('groups')} className="mr-2 p-1 text-slate-600 hover:text-slate-800 rounded-full bg-slate-100"><ArrowLeft className="w-5 h-5" /></button>
-                                    )}
-                                    <h2 className="text-base font-bold text-slate-800 flex items-center">
-                                        <LayoutGrid className="w-4 h-4 mr-2 text-accent" /> Rooms in <span className="ml-1 text-primary truncate">{selectedProject || 'N/A'}</span>
-                                    </h2>
-                                </div>
-                                <button
-                                    // action is still 'group' but the displayed name is 'Room'
-                                    onClick={() => selectedProject && structureAction('group', 'add', '', selectedProject)}
-                                    className={`px-3 py-1 text-white rounded-xl text-sm font-semibold transition shadow-sm ${selectedProject ? 'bg-accent hover:bg-green-600' : 'bg-gray-400 cursor-not-allowed'}`}
-                                    title={selectedProject ? "Add New Room" : "Select a Project first"}
-                                    disabled={!selectedProject}
-                                >
-                                    + Add Room
-                                </button>
-                            </div>
-                            
-                            {/* Scrollable List of Groups/Rooms */}
-                            <ul className="panel-list-wrapper py-2">
-                                {availableGroups.length === 0 ? (
-                                    <p className="p-4 text-center text-sm text-slate-500">No rooms found. Click "+ Add Room".</p>
-                                ) : (
-                                    availableGroups.map((group) => {
-                                        const isActive = group === selectedGroup;
-                                        
-                                        // Count is based on items filtered by the currently selected project AND the current group/room
-                                        const count = snags.filter(s => (s.header_category === selectedProject) && (s.room_name === group)).length;
-
-                                        return (
-                                            <li 
-                                                key={group} 
-                                                onClick={() => handleGroupSelect(group)}
-                                                className={`flex justify-between items-center p-3 cursor-pointer transition ${isActive ? 'bg-accent/10 text-accent font-bold border-l-4 border-accent' : 'hover:bg-slate-100 text-slate-700 font-medium'}`}
-                                            >
-                                                <div className="flex-grow truncate pr-2">{group}</div>
-                                                <div className="flex items-center space-x-2">
-                                                    <Edit 
-                                                        className="w-4 h-4 text-slate-500 hover:text-accent transition" 
-                                                        onClick={(e) => { e.stopPropagation(); structureAction('group', 'edit', group, selectedProject); }}
-                                                        title="Rename Room"
-                                                    />
-                                                    <Trash 
-                                                        className="w-4 h-4 text-red-400 hover:text-red-600 transition" 
-                                                        // FIX: Now correctly calls the 'delete' action for the group/room structure
-                                                        onClick={(e) => { e.stopPropagation(); structureAction('group', 'delete', group, selectedProject); }}
-                                                        title="Delete Room"
-                                                    />
-                                                    <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${isActive ? 'bg-accent text-white' : 'bg-slate-300 text-slate-700'}`}>
-                                                        {count}
-                                                    </span>
-                                                </div>
-                                            </li>
-                                        );
-                                    })
-                                )}
-                            </ul>
-                        </div>
-                        
-                        {/* Panel 3 (Right): Project Items List / Detail View */}
-                        <div 
-                            className={`panel items-panel bg-gray-100 p-4 lg:p-6 lg:border-r-0 overflow-y-auto ${isDesktop ? '' : (activePanel === 'items' ? 'active-panel' : 'hidden-right')}`}
-                        >
-                            <h2 className="text-xl font-bold text-slate-800 mb-4 flex items-center flex-shrink-0">
-                                {!isDesktop && (
-                                    <button onClick={() => navigateBack('items')} className="mr-2 p-1 text-slate-600 hover:text-slate-800 rounded-full bg-white shadow-md flex-shrink-0"><ArrowLeft className="w-5 h-5" /></button>
-                                )}
-                                <Tag className="w-5 h-5 mr-2 text-primary flex-shrink-0" />
-                                <span className="text-primary mr-1 truncate text-lg flex-shrink-0">{selectedProject || 'Select Project'}</span> 
-                                <span className="text-slate-500 mr-3 truncate text-lg flex-shrink-0"> / {selectedGroup || 'Select Room'}</span>
-                                
-                                <span className="ml-auto text-base font-bold bg-primary text-white px-3 py-1 rounded-full shadow-sm flex-shrink-0">
-                                    {filteredSnags.filter(s => s.status === 'open').length} Open
-                                </span>
-                            </h2>
-                            
-                            {/* Project Items List */}
-                            
-                            <div className="flex flex-col gap-4">
-                                {filteredSnags.length === 0 ? (
-                                    <p className="p-4 text-center text-sm text-slate-500 bg-white rounded-xl shadow-md">
-                                        {selectedProject && selectedGroup 
-                                            ? `No open or completed items in ${selectedProject} / ${selectedGroup}. Click the '+' button above to add one.`
-                                            : 'Select a project and room to view items.'}
-                                    </p>
-                                ) : (
-                                    filteredSnags.map(snag => (
-                                        <SnagItem key={snag.id} snag={snag} />
-                                    ))
-                                )}
-                            </div>
-
-                        </div>
-                    </div>
+                    <CustomModal modal={modal} closeModal={() => setModal(null)} />
+                    <CustomModal modal={linkModal} closeModal={() => setLinkModal(null)} />
+                    
                 </div>
             );
         }
 
         const root = ReactDOM.createRoot(document.getElementById('root'));
-        root.render(
-            <React.StrictMode>
-                <Tracker />
-            </React.StrictMode>
-        );
+        root.render(<Tracker />);
     </script>
 </body>
 </html>
