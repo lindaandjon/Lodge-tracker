@@ -134,7 +134,7 @@
         const { useState, useEffect, useMemo, useCallback } = React;
         
         // --- CONFIGURATION ---
-        const APP_VERSION = '11.5 (Rooms & Thumbnails)'; // Updated version
+        const APP_VERSION = '11.4 (Focus & Sync Fixed)'; // Updated version
         const TABLE_NAME = 'snags';
         const CATEGORY_STORAGE_KEY = 'snag_projects_v11_3'; 
         
@@ -228,11 +228,8 @@
             const [viewingPhoto, setViewingPhoto] = useState(null);
             
             // New Item Form State (initialized to first available values)
-            // Note: These will be updated in handleAddItemClick before modal opens
             const [newProjectCategory, setNewProjectCategory] = useState(allProjects[0] || '');
             const [newProjectGroup, setNewProjectGroup] = useState(allGroupsMap[allProjects[0]]?.[0] || '');
-
-            const [newSnagText, setNewSnagText] = useState('');
 
             // Editing Item State 
             const [editingSnagId, setEditingSnagId] = useState(null);
@@ -307,12 +304,11 @@
                 // --- End Default Selection Logic ---
 
                 // Set new snag modal defaults here too
-                // This initialization is largely superseded by handleAddItemClick, but kept for initial form clarity.
                 const firstProj = projects[0] || '';
                 setNewProjectCategory(firstProj);
                 setNewProjectGroup(allGroupsMap[firstProj]?.[0] || '');
 
-            }, [allGroupsMap, selectedProject, selectedGroup]); // Depend on allGroupsMap for project/group structure
+            }, [allGroupsMap, selectedProject, selectedGroup]); 
 
             useEffect(() => {
                 if (!supabaseClient) return;
@@ -322,6 +318,7 @@
                 const subscription = supabaseClient
                     .channel('public:snags_updates')
                     .on('postgres_changes', { event: '*', schema: 'public', table: TABLE_NAME }, payload => {
+                        // Rely on the subscription for general updates
                         fetchSnags(supabaseClient);
                     })
                     .subscribe();
@@ -404,9 +401,12 @@
                     console.error("Error adding item:", error);
                     setStatus(`Failed to add item: ${error.message}`);
                 } else {
-                    setNewSnagText('');
+                    // FIX 2: Manually fetch to force immediate UI update and bypass subscription latency
+                    await fetchSnags(supabaseClient); 
+                    setStatus('Item added successfully. Syncing...');
+                    
                     setIsAddSnagModalOpen(false); // Close modal on success
-                    setStatus('Item added. Syncing...');
+
                     // On mobile, automatically move to the item list view after adding
                     if (!isDesktop) {
                         setActivePanel('items');
@@ -509,16 +509,16 @@
                 return selectedProject ? (allGroupsMap[selectedProject] || []) : [];
             }, [selectedProject, allGroupsMap]);
 
-            // --- UI/STATE HANDLERS ---
-            
+
+            // Centralized function to inject link text into the editing snag field
             const injectLink = (markdownLink, target) => {
-                if (target === 'new') {
-                    setNewSnagText(prev => prev.trim() + ' ' + markdownLink + ' ');
-                } else if (target === 'edit') {
+                // Only used for the EDIT input in this setup.
+                if (target === 'edit') {
                     setEditingSnagText(prev => prev.trim() + ' ' + markdownLink + ' ');
                 }
                 setLinkModal(null);
             };
+
 
             // NEW HANDLER FOR THE HEADER '+' BUTTON
             const handleAddItemClick = () => {
@@ -539,13 +539,9 @@
                 setIsAddSnagModalOpen(true);
             };
 
-
-            const addSnag = (e) => {
-                e.preventDefault();
-                const project = newProjectCategory.trim();
-                const group = newProjectGroup.trim();
-
-                if (!newSnagText.trim() || !project || !group) {
+            // Handler called by AddSnagModal on submission
+            const addSnag = (snagText, project, group) => {
+                if (!snagText.trim() || !project || !group) {
                     setStatus('Error: Missing item text, project, or group.');
                     return;
                 }
@@ -553,8 +549,9 @@
                 const newSnagData = {
                     header_category: project, // Stored as category
                     room_name: group,         // Stored as room_name
-                    text: newSnagText.trim(),
+                    text: snagText.trim(),
                 };
+                // Call the DB wrapper
                 addNewSnagToDB(newSnagData);
             };
 
@@ -591,26 +588,47 @@
 
             // --- MODAL COMPONENTS ---
 
-            const AddSnagModal = ({ isOpen, onClose }) => {
+            const AddSnagModal = ({ isOpen, onClose, onAddSnag, setLinkModal, allGroupsMap, newProjectCategory, setNewProjectCategory, newProjectGroup, setNewProjectGroup }) => {
+                // FIX 1: New local state for the text input to prevent focus loss
+                const [snagText, setSnagText] = useState(''); 
+
                 if (!isOpen) return null;
 
                 const allProjs = Object.keys(allGroupsMap).sort();
                 const availableGroupsForProject = allGroupsMap[newProjectCategory] || [];
-                const canSubmit = newSnagText.trim() && newProjectCategory && newProjectGroup;
+                const canSubmit = snagText.trim() && newProjectCategory && newProjectGroup;
+
+                // Function to inject link text into this local state
+                const injectLocalLink = (markdownLink) => {
+                    setSnagText(prev => prev.trim() + ' ' + markdownLink + ' ');
+                    setLinkModal(null);
+                };
 
                 const handleLinkClick = (e) => {
                     e.preventDefault();
-                    setLinkModal({ type: 'link', target: 'new' });
+                    // Open the link modal, passing the custom injection function
+                    setLinkModal({ 
+                        type: 'link', 
+                        target: 'new',
+                        injectFn: injectLocalLink // Pass the function to update local state
+                    });
+                };
+
+                const handleSubmit = (e) => {
+                    e.preventDefault();
+                    onAddSnag(snagText, newProjectCategory, newProjectGroup);
+                    // Clear local state regardless of success (parent handles the modal close)
+                    setSnagText(''); 
                 };
 
                 const closeHandler = () => {
-                    setNewSnagText(''); // Clear text on close
+                    setSnagText(''); // Clear local text on close
                     onClose();
                 }
 
                 return (
                     <div className="modal" onClick={closeHandler}>
-                        <form className="modal-content" onClick={(e) => e.stopPropagation()} onSubmit={addSnag}>
+                        <form className="modal-content" onClick={(e) => e.stopPropagation()} onSubmit={handleSubmit}>
                             <div className="flex items-center justify-between mb-4 border-b pb-3 border-slate-100">
                                 <h3 className="text-xl font-bold text-slate-800 flex items-center"><Plus className="w-5 h-5 mr-2 text-accent"/> Add New Project Item</h3>
                                 <button type="button" onClick={closeHandler} className="p-1 text-slate-500 hover:text-slate-800 rounded-full"><X className="w-5 h-5" /></button>
@@ -653,8 +671,8 @@
                             <textarea
                                 rows="3"
                                 placeholder="Enter item details (supports [link text](url))"
-                                value={newSnagText}
-                                onChange={(e) => setNewSnagText(e.target.value)}
+                                value={snagText}
+                                onChange={(e) => setSnagText(e.target.value)}
                                 className="w-full p-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary mb-6 text-base"
                                 required
                             />
@@ -784,7 +802,16 @@
                         e.preventDefault();
                         if (linkText.trim() && linkUrl.trim()) {
                             const markdownLink = `[${linkText.trim()}](${linkUrl.trim()})`;
-                            injectLink(markdownLink, linkModal.target);
+                            
+                            // Check if the link modal provided a custom injection function (for the new snag modal)
+                            if (modal.target === 'new' && modal.injectFn) {
+                                modal.injectFn(markdownLink);
+                            } else if (modal.target === 'edit') {
+                                // Default path for editing existing snag
+                                injectLink(markdownLink, 'edit'); 
+                            }
+                            
+                            closeModal();
                         }
                     };
 
@@ -1018,6 +1045,13 @@
                     <AddSnagModal 
                         isOpen={isAddSnagModalOpen} 
                         onClose={() => setIsAddSnagModalOpen(false)}
+                        onAddSnag={addSnag}
+                        setLinkModal={setLinkModal}
+                        allGroupsMap={allGroupsMap}
+                        newProjectCategory={newProjectCategory} 
+                        setNewProjectCategory={setNewProjectCategory} 
+                        newProjectGroup={newProjectGroup} 
+                        setNewProjectGroup={setNewProjectGroup}
                     />
 
                     {/* Photo Viewer Modal */}
