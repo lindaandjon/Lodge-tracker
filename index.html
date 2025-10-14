@@ -3,855 +3,1116 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sleek Snag Tracker</title>
-    <!-- Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    fontFamily: {
-                        sans: ['Inter', 'sans-serif'],
-                    },
-                    colors: {
-                        'primary': '#1E40AF', // Blue-800
-                        'accent': '#10B981',  // Green-500
-                        'status-open': '#F59E0B', // Amber-500
-                        'status-closed': '#10B981', // Green-500
-                    }
-                }
-            }
-        }
-    </script>
-    <!-- React & Babel -->
+    <title>Lodge Build Tracker</title>
+    
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#2563eb">
+    <link rel="apple-touch-icon" href="icon-192.png">
+    
     <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
     <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
-    <!-- Supabase Client Library -->
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    
-    <style>
-        /* Custom styles for the sleek look */
-        .snag-card {
-            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.08), 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-            transition: all 0.2s ease-in-out;
-        }
-        .snag-card:hover {
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
-            transform: translateY(-1px);
-        }
-        .modal {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(15, 23, 42, 0.8); /* slate-900 opacity 80 */
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            z-index: 1000;
-        }
-        .modal-content {
-            background: white;
-            padding: 28px;
-            border-radius: 16px;
-            max-width: 480px;
-            width: 90%;
-            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
-        }
-        /* Style for rendered markdown links */
-        .snag-description a {
-            color: #2563EB; /* blue-600 */
-            text-decoration: underline;
-            font-weight: 600;
-            word-break: break-word;
-        }
-        /* Style for category headers */
-        .category-header {
-            background: #F1F5F9; /* Slate-100 for a clean look */
-        }
-    </style>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <script src="https://apis.google.com/js/api.js"></script>
 </head>
-<body class="bg-gray-100 font-sans antialiased">
+<body>
     <div id="root"></div>
-
+    
     <script type="text/babel">
-        const { useState, useEffect, useMemo } = React;
+        const { useState, useEffect } = React;
         
-        // --- CONFIGURATION ---
-        const APP_VERSION = '9.1 (Simplified View)'; 
-        const TABLE_NAME = 'snags';
-
-        // !!! IMPORTANT: REPLACE THESE PLACEHOLDERS WITH YOUR SUPABASE KEYS !!!
-        const SUPABASE_URL = 'https://ejozspveaasscxqovitn.supabase.co'; 
-        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVqb3pzcHZlYWFzc2N4cW92aXRuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjA0MzMyOTcsImV4cCI6MjA3NjAwOTI5N30.D--chXcvpMl_gDRY0ZvBcAg3nzwwDAuuFHTB2pgYtZ8';
-        // --- END CONFIGURATION ---
+        const CLIENT_ID = '143126622947-aua7tmjl6rf5fq4i4ggijrvvbe8ut9ck.apps.googleusercontent.com';
+        const API_KEY = 'AIzaSyA9Z_fZB1Sv5mUPmToeRQdkgUPxHu6U3q4';
+        const SCOPES = 'https://www.googleapis.com/auth/drive.file';
+        const DISCOVERY_DOCS = ['https://www.googleapis.com/discovery/v1/apis/drive/v3/rest'];
         
-        // Defines the initial set for first run.
-        const INITIAL_CATEGORIES = {
-            "Lodge": ["Kitchen", "Master Bedroom", "Master Bath", "Hallway", "Utility Room", "Exterior"],
-            "Legal": ["Sols", "Planning", "Deeds", "Contracts"],
-            "Financial": ["Mortgage", "Insurance", "Taxes"],
-            "Admin": ["Permits", "Correspondence", "General"]
-        };
+        // Icons
+        const Plus = ({ size = 24 }) => (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <line x1="12" y1="5" x2="12" y2="19"></line>
+                <line x1="5" y1="12" x2="19" y2="12"></line>
+            </svg>
+        );
+        
+        const Trash2 = ({ size = 24 }) => (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <polyline points="3 6 5 6 21 6"></polyline>
+                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+            </svg>
+        );
+        
+        const Check = ({ size = 24 }) => (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <polyline points="20 6 9 17 4 12"></polyline>
+            </svg>
+        );
+        
+        const X = ({ size = 24 }) => (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <line x1="18" y1="6" x2="6" y2="18"></line>
+                <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+        );
+        
+        const Edit = ({ size = 24 }) => (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+            </svg>
+        );
+        
+        const Download = ({ size = 24 }) => (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                <polyline points="7 10 12 15 17 10"></polyline>
+                <line x1="12" y1="15" x2="12" y2="3"></line>
+            </svg>
+        );
+        
+        const Camera = ({ size = 24 }) => (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
+                <circle cx="12" cy="13" r="4"></circle>
+            </svg>
+        );
 
-        // --- ICONS (Lucide React equivalent SVGs) ---
-        const X = (props) => <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6L6 18"/><path d="M6 6l12 12"/></svg>;
-        const Check = (props) => <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5"/></svg>;
-        const Trash = (props) => <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M10 4h4V2h-4z"/></svg>;
-        const Edit = (props) => <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5L2 22l1.5-5.5L17 3z"/></svg>;
-        const Plus = (props) => <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14"/><path d="M5 12h14"/></svg>;
-        const Camera = (props) => <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>;
-        const Filter = (props) => <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>;
-        const Database = (props) => <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>;
-        const AlertIcon = (props) => <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>;
-        const LinkIcon = (props) => <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>;
-        const FolderOpen = (props) => <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 14l2-2h12a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5c0-1.1.9-2 2-2h4l2 3h10v2"/></svg>;
-        const MapPin = (props) => <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s-8-4.5-8-11.8A8 8 0 0 1 12 2a8 8 0 0 1 8 8.2c0 7.3-8 11.8-8 11.8z"/><circle cx="12" cy="10" r="3"/></svg>;
+        const Home = ({ size = 24 }) => (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+                <polyline points="9 22 9 12 15 12 15 22"></polyline>
+            </svg>
+        );
 
+        const Cloud = ({ size = 24 }) => (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"></path>
+            </svg>
+        );
 
-        // --- UTILITY FUNCTION ---
-        const renderMarkdownLinks = (text) => {
-            if (!text) return { __html: '' };
-            const regex = /\[([^\]]+)\]\(([^)]+)\)/g;
-            
-            const htmlText = text.replace(regex, (match, linkText, url) => {
-                let safeUrl = url.trim();
-                if (!safeUrl.match(/^(https?:\/\/|mailto:)/i)) {
-                    safeUrl = 'http://' + safeUrl;
-                }
-                return `<a href="${safeUrl}" target="_blank" rel="noopener noreferrer">${linkText}</a>`;
-            });
+        const CloudOff = ({ size = 24 }) => (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M22.61 16.95A5 5 0 0 0 18 10h-1.26a8 8 0 0 0-7.05-6M5 5a8 8 0 0 0 4 15h9a5 5 0 0 0 1.7-.3"></path>
+                <line x1="1" y1="1" x2="23" y2="23"></line>
+            </svg>
+        );
 
-            return { __html: htmlText };
-        };
+        const Lock = ({ size = 24 }) => (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+            </svg>
+        );
 
+        const Unlock = ({ size = 24 }) => (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                <path d="M7 11V7a5 5 0 0 1 9.9-1"></path>
+            </svg>
+        );
 
-        function Tracker() {
+        function LodgeSnagTracker() {
+            const [rooms, setRooms] = useState([]);
             const [snags, setSnags] = useState([]);
-            
-            // New Snag State: Dynamic inputs
-            const [newSnagCategory, setNewSnagCategory] = useState(Object.keys(INITIAL_CATEGORIES)[0]);
-            const [newSnagSubcategory, setNewSnagSubcategory] = useState(INITIAL_CATEGORIES[Object.keys(INITIAL_CATEGORIES)[0]][0]);
+            const [selectedRoom, setSelectedRoom] = useState(null);
+            const [newRoomName, setNewRoomName] = useState('');
             const [newSnagText, setNewSnagText] = useState('');
-
-            // Filter State
-            const [filterCategory, setFilterCategory] = useState('All Categories');
-            const [filterSubcategory, setFilterSubcategory] = useState('All Subcategories');
-
-            // UI/System State
+            const [showAddRoom, setShowAddRoom] = useState(false);
             const [viewingPhoto, setViewingPhoto] = useState(null);
-            const [editingSnagId, setEditingSnagId] = useState(null);
-            const [editingSnagText, setEditingSnagText] = useState('');
-            const [editingSnagCategory, setEditingSnagCategory] = useState('');
-            const [editingSnagSubcategory, setEditingSnagSubcategory] = useState('');
-
-            const [modal, setModal] = useState(null); 
-            const [linkModal, setLinkModal] = useState(null); 
-            const [status, setStatus] = useState('Awaiting connection...');
-            const [supabaseClient, setSupabaseClient] = useState(null);
+            const [draggedRoom, setDraggedRoom] = useState(null);
+            const [editingLink, setEditingLink] = useState(null);
+            const [linkText, setLinkText] = useState('');
+            const [linkUrl, setLinkUrl] = useState('');
+            const [editingSnag, setEditingSnag] = useState(null);
+            const [editSnagText, setEditSnagText] = useState('');
             
-            // Runtime lists for dynamic rooms/categories
-            const [allCategories, setAllCategories] = useState(Object.keys(INITIAL_CATEGORIES));
-            const [allSubcategories, setAllSubcategories] = useState(INITIAL_CATEGORIES);
+            // Google Drive & Sync State
+            const [isSignedIn, setIsSignedIn] = useState(false);
+            const [isOnline, setIsOnline] = useState(navigator.onLine);
+            const [allowOfflineEdit, setAllowOfflineEdit] = useState(false);
+            const [driveFileId, setDriveFileId] = useState(null);
+            const [isSyncing, setIsSyncing] = useState(false);
+            const [lastSyncTime, setLastSyncTime] = useState(null);
+            const [gapiReady, setGapiReady] = useState(false);
+            const [accessToken, setAccessToken] = useState(null);
+            const [tokenClient, setTokenClient] = useState(null);
 
-
-            // --- SUPABASE INITIALIZATION & LISTENER ---
-
+            // Initialize Google API with new GIS
             useEffect(() => {
-                if (SUPABASE_URL.includes('PASTE_') || SUPABASE_ANON_KEY.includes('PASTE_')) {
-                    setStatus('Error: Supabase keys are missing. Please enter them in the CONFIGURATION section.');
-                    return;
-                }
-                
-                try {
-                    const client = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-                    setSupabaseClient(client);
-                    setStatus('Supabase client initialized. Connecting...');
-                } catch (error) {
-                    console.error("Supabase Initialization Error:", error);
-                    setStatus(`Initialization Error: ${error.message}`);
-                }
-            }, []);
-
-            useEffect(() => {
-                if (!supabaseClient) return;
-
-                const fetchSnags = async () => {
-                    setStatus('Fetching data from cloud...');
-                    const { data, error } = await supabaseClient
-                        .from(TABLE_NAME)
-                        .select('*')
-                        .order('created_at', { ascending: false });
-
-                    if (error) {
-                        console.error("Fetch Error:", error);
-                        if (error.code === '42P01') { 
-                            setStatus(`Error: Table '${TABLE_NAME}' not found. Did you create it in Supabase?`);
-                        } else {
-                             setStatus(`Error fetching data: ${error.message}`);
-                        }
+                const initClient = () => {
+                    if (!window.gapi) {
+                        console.error('Google API not loaded');
+                        alert('Google API failed to load. Check if ad blockers are blocking apis.google.com');
+                        loadFromLocalStorage();
                         return;
                     }
 
-                    setSnags(data);
-                    setStatus(`Sync successful. ${data.length} items loaded.`);
-                    
-                    const categoriesSet = new Set(Object.keys(INITIAL_CATEGORIES));
-                    const subcategoriesMap = JSON.parse(JSON.stringify(INITIAL_CATEGORIES));
-
-                    data.forEach(snag => {
-                        const catKey = (snag.header_category || '').trim() || 'Uncategorized';
-                        categoriesSet.add(catKey);
-                        
-                        if (!subcategoriesMap[catKey]) {
-                            subcategoriesMap[catKey] = [];
-                        }
-
-                        const subKey = (snag.room_name || '').trim();
-                        if (subKey && !subcategoriesMap[catKey].includes(subKey)) {
-                            subcategoriesMap[catKey].push(subKey);
+                    window.gapi.load('client', async () => {
+                        try {
+                            await window.gapi.client.init({
+                                apiKey: API_KEY,
+                                discoveryDocs: DISCOVERY_DOCS,
+                            });
+                            console.log('Google API client initialized');
+                            setGapiReady(true);
+                            
+                            // Check if user was previously signed in
+                            const savedToken = localStorage.getItem('gapi_access_token');
+                            if (savedToken) {
+                                setAccessToken(savedToken);
+                                setIsSignedIn(true);
+                                loadFromDrive();
+                            } else {
+                                loadFromLocalStorage();
+                            }
+                        } catch (err) {
+                            console.error('Error initializing Google API:', err);
+                            alert('Error initializing Google Drive: ' + (err.error || err.message || 'Unknown error'));
+                            loadFromLocalStorage();
                         }
                     });
-
-                    const sortedCategories = Array.from(categoriesSet).sort();
-                    
-                    Object.keys(subcategoriesMap).forEach(key => {
-                        subcategoriesMap[key] = subcategoriesMap[key].sort();
-                    });
-
-                    setAllCategories(sortedCategories);
-                    setAllSubcategories(subcategoriesMap);
-
-                    if (!categoriesSet.has(newSnagCategory)) {
-                        setNewSnagCategory(sortedCategories[0] || '');
-                    }
                 };
-                
-                fetchSnags();
 
-                const subscription = supabaseClient
-                    .channel('public:snags_updates')
-                    .on('postgres_changes', { event: '*', schema: 'public', table: TABLE_NAME }, payload => {
-                        fetchSnags();
-                    })
-                    .subscribe();
+                // Initialize GIS token client
+                const initTokenClient = () => {
+                    if (!window.google || !window.google.accounts) {
+                        console.log('Waiting for Google Identity Services...');
+                        return;
+                    }
+
+                    const client = window.google.accounts.oauth2.initTokenClient({
+                        client_id: CLIENT_ID,
+                        scope: SCOPES,
+                        callback: (response) => {
+                            if (response.error) {
+                                console.error('Token error:', response);
+                                alert('Sign-in failed: ' + response.error);
+                                return;
+                            }
+                            console.log('Access token received');
+                            setAccessToken(response.access_token);
+                            localStorage.setItem('gapi_access_token', response.access_token);
+                            setIsSignedIn(true);
+                            loadFromDrive();
+                        },
+                    });
+                    setTokenClient(client);
+                    console.log('Token client initialized');
+                };
+
+                // Wait for both scripts to load
+                let attempts = 0;
+                const checkReady = setInterval(() => {
+                    attempts++;
+                    if (window.gapi && window.google?.accounts?.oauth2) {
+                        clearInterval(checkReady);
+                        initClient();
+                        initTokenClient();
+                    } else if (attempts > 20) {
+                        clearInterval(checkReady);
+                        console.error('Google APIs failed to load after 10 seconds');
+                        alert('Google Drive sync unavailable. Using local mode.');
+                        loadFromLocalStorage();
+                    }
+                }, 500);
+
+                return () => clearInterval(checkReady);
+            }, []);
+
+            // Monitor online/offline status
+            useEffect(() => {
+                const handleOnline = () => setIsOnline(true);
+                const handleOffline = () => setIsOnline(false);
+
+                window.addEventListener('online', handleOnline);
+                window.addEventListener('offline', handleOffline);
 
                 return () => {
-                    if (subscription) {
-                        supabaseClient.removeChannel(subscription);
-                    }
+                    window.removeEventListener('online', handleOnline);
+                    window.removeEventListener('offline', handleOffline);
                 };
-            }, [supabaseClient]);
+            }, []);
 
-
-            // --- SUPABASE CRUD WRAPPERS ---
-            const addNewSnagToDB = async (snagData) => {
-                if (!supabaseClient) return setStatus('Connection not ready.');
+            // Load from localStorage
+            const loadFromLocalStorage = () => {
+                const savedRooms = localStorage.getItem('lodgeRooms');
+                const savedSnags = localStorage.getItem('lodgeSnags');
+                const savedFileId = localStorage.getItem('driveFileId');
                 
-                const { error } = await supabaseClient
-                    .from(TABLE_NAME)
-                    .insert([{ 
-                        ...snagData,
-                        status: 'open',
-                        created_at: new Date().toISOString(),
-                        photo_data: null, 
-                    }]);
-
-                if (error) {
-                    console.error("Error adding snag:", error);
-                    setStatus(`Failed to add snag: ${error.message}`);
-                } else {
-                    setNewSnagText('');
-                    setStatus('Item added. Syncing...');
+                if (savedRooms && savedSnags) {
+                    setRooms(JSON.parse(savedRooms));
+                    setSnags(JSON.parse(savedSnags));
+                }
+                if (savedFileId) {
+                    setDriveFileId(savedFileId);
                 }
             };
 
-            const updateSnagInDB = async (id, updates) => {
-                if (!supabaseClient) return setStatus('Connection not ready.');
+            // Save to localStorage
+            useEffect(() => {
+                localStorage.setItem('lodgeRooms', JSON.stringify(rooms));
+            }, [rooms]);
 
-                const { error } = await supabaseClient
-                    .from(TABLE_NAME)
-                    .update({ 
-                        ...updates,
-                        updated_at: new Date().toISOString(),
-                    })
-                    .eq('id', id);
+            useEffect(() => {
+                localStorage.setItem('lodgeSnags', JSON.stringify(snags));
+            }, [snags]);
 
-                if (error) {
-                    console.error("Error updating snag:", error);
-                    setStatus(`Failed to update item: ${error.message}`);
-                } else {
-                    setStatus('Item updated. Syncing...');
+            // Google Sign In with new GIS
+            const handleSignIn = () => {
+                if (!tokenClient) {
+                    alert('Google Sign-In not ready yet. Please wait a moment and try again.');
+                    return;
+                }
+                tokenClient.requestAccessToken();
+            };
+
+            const handleSignOut = () => {
+                if (accessToken) {
+                    window.google.accounts.oauth2.revoke(accessToken, () => {
+                        console.log('Access token revoked');
+                    });
+                }
+                setAccessToken(null);
+                localStorage.removeItem('gapi_access_token');
+                setIsSignedIn(false);
+                setDriveFileId(null);
+                localStorage.removeItem('driveFileId');
+            };
+
+            // Find or create file in Drive
+            const findOrCreateFile = async () => {
+                try {
+                    const response = await window.gapi.client.drive.files.list({
+                        q: "name='lodge-backup.json' and trashed=false",
+                        spaces: 'drive',
+                        fields: 'files(id, name)'
+                    });
+
+                    if (response.result.files && response.result.files.length > 0) {
+                        return response.result.files[0].id;
+                    }
+
+                    const fileMetadata = {
+                        name: 'lodge-backup.json',
+                        mimeType: 'application/json'
+                    };
+                    const fileContent = JSON.stringify({ rooms: [], snags: [], savedDate: new Date().toISOString() });
+                    
+                    const file = new Blob([fileContent], { type: 'application/json' });
+                    const formData = new FormData();
+                    formData.append('metadata', new Blob([JSON.stringify(fileMetadata)], { type: 'application/json' }));
+                    formData.append('file', file);
+
+                    const uploadResponse = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
+                        method: 'POST',
+                        headers: new Headers({ 'Authorization': 'Bearer ' + window.gapi.auth.getToken().access_token }),
+                        body: formData
+                    });
+
+                    const result = await uploadResponse.json();
+                    return result.id;
+                } catch (error) {
+                    console.error('Error finding/creating file:', error);
+                    return null;
                 }
             };
 
-            const deleteSnagFromDB = async (id) => {
-                if (!supabaseClient) return setStatus('Connection not ready.');
+            // Load from Drive
+            const loadFromDrive = async () => {
+                if (!isSignedIn || !gapiReady) return;
+                
+                setIsSyncing(true);
+                try {
+                    let fileId = driveFileId;
+                    if (!fileId) {
+                        fileId = await findOrCreateFile();
+                        if (fileId) {
+                            setDriveFileId(fileId);
+                            localStorage.setItem('driveFileId', fileId);
+                        }
+                    }
 
-                const { error } = await supabaseClient
-                    .from(TABLE_NAME)
-                    .delete()
-                    .eq('id', id);
+                    if (fileId) {
+                        const response = await window.gapi.client.drive.files.get({
+                            fileId: fileId,
+                            alt: 'media'
+                        });
 
-                if (error) {
-                    console.error("Error deleting snag:", error);
-                    setStatus(`Failed to delete item: ${error.message}`);
-                } else {
-                    setStatus('Item deleted. Syncing...');
+                        const data = response.result;
+                        if (data.rooms && data.snags) {
+                            setRooms(data.rooms);
+                            setSnags(data.snags);
+                            setLastSyncTime(Date.now());
+                        }
+                    }
+                } catch (error) {
+                    console.error('Error loading from Drive:', error);
+                } finally {
+                    setIsSyncing(false);
                 }
             };
 
+            // Save to Drive
+            const saveToDrive = async () => {
+                if (!isSignedIn || !isOnline || !gapiReady) return;
 
-            // --- UI/STATE HANDLERS ---
-            const injectLink = (markdownLink, target) => {
-                if (target === 'new') {
-                    setNewSnagText(prev => prev.trim() + ' ' + markdownLink + ' ');
-                } else if (target === 'edit') {
-                    setEditingSnagText(prev => prev.trim() + ' ' + markdownLink + ' ');
+                setIsSyncing(true);
+                try {
+                    let fileId = driveFileId;
+                    if (!fileId) {
+                        fileId = await findOrCreateFile();
+                        if (fileId) {
+                            setDriveFileId(fileId);
+                            localStorage.setItem('driveFileId', fileId);
+                        }
+                    }
+
+                    if (fileId) {
+                        const data = {
+                            rooms,
+                            snags,
+                            savedDate: new Date().toISOString()
+                        };
+
+                        await window.gapi.client.request({
+                            path: '/upload/drive/v3/files/' + fileId,
+                            method: 'PATCH',
+                            params: { uploadType: 'media' },
+                            body: JSON.stringify(data)
+                        });
+
+                        setLastSyncTime(Date.now());
+                        
+                        if ('Notification' in window && Notification.permission === 'granted') {
+                            new Notification('Lodge Tracker', {
+                                body: '✅ Synced to Google Drive',
+                                icon: 'icon-192.png'
+                            });
+                        }
+                    }
+                } catch (error) {
+                    console.error('Error saving to Drive:', error);
+                } finally {
+                    setIsSyncing(false);
                 }
-                setLinkModal(null);
             };
 
-            const handleNewCategoryChange = (e) => {
-                setNewSnagCategory(e.target.value);
-            }
-            
-            const handleNewSubcategoryChange = (e) => {
-                setNewSnagSubcategory(e.target.value);
-            }
+            // Auto-save to Drive when data changes
+            useEffect(() => {
+                if (isSignedIn && isOnline && (rooms.length > 0 || snags.length > 0)) {
+                    const timer = setTimeout(() => {
+                        saveToDrive();
+                    }, 2000);
+                    return () => clearTimeout(timer);
+                }
+            }, [rooms, snags, isSignedIn, isOnline]);
 
-            const addSnag = (e) => {
-                e.preventDefault();
-                if (!newSnagText.trim()) return;
-
-                const newSnagData = {
-                    header_category: newSnagCategory.trim() || 'Uncategorized',
-                    room_name: newSnagSubcategory.trim() || 'N/A',
-                    text: newSnagText.trim(),
-                };
-                addNewSnagToDB(newSnagData);
+            // Check if editing is allowed
+            const canEdit = () => {
+                if (!isSignedIn) return true;
+                if (isOnline) return true;
+                return allowOfflineEdit;
             };
 
-            const toggleSnagStatus = (snag) => {
-                const newStatus = snag.status === 'closed' ? 'open' : 'closed';
-                updateSnagInDB(snag.id, { status: newStatus });
+            const addRoom = () => {
+                if (!canEdit()) return;
+                if (newRoomName.trim()) {
+                    const newRoom = { id: Date.now(), name: newRoomName.trim(), thumbnail: null };
+                    setRooms([...rooms, newRoom]);
+                    setNewRoomName('');
+                    setShowAddRoom(false);
+                }
             };
 
-            const handleDeleteRequest = (snag) => {
-                setModal({
-                    type: 'confirm',
-                    message: `Are you sure you want to delete: "${snag.header_category} > ${snag.room_name} > ${snag.text.split('[')[0].trim()}..."? This action cannot be undone.`,
-                    action: () => deleteSnagFromDB(snag.id)
-                });
-            };
-            
-            const startEdit = (snag) => {
-                setEditingSnagId(snag.id);
-                setEditingSnagText(snag.text);
-                setEditingSnagCategory(snag.header_category);
-                setEditingSnagSubcategory(snag.room_name);
-            }
-            
-            const saveEdit = (id) => {
-                updateSnagInDB(id, { 
-                    text: editingSnagText.trim(), 
-                    header_category: editingSnagCategory.trim() || 'Uncategorized',
-                    room_name: editingSnagSubcategory.trim() || 'N/A',
-                });
-                setEditingSnagId(null);
-                setEditingSnagText('');
-            }
-
-            const handlePhotoUpload = (event, id) => {
-                const file = event.target.files[0];
-                if (!file) return;
-
+            const addRoomThumbnail = (roomId, file) => {
+                if (!canEdit() || !file || !file.type.startsWith('image/')) return;
                 const reader = new FileReader();
                 reader.onload = (e) => {
-                    updateSnagInDB(id, { photo_data: e.target.result });
+                    setRooms(rooms.map(r => r.id === roomId ? { ...r, thumbnail: e.target.result } : r));
                 };
                 reader.readAsDataURL(file);
             };
 
-
-            // --- FILTERING AND GROUPING (Simplified Grouping) ---
-            
-            const filteredSnags = useMemo(() => {
-                let filtered = snags;
-
-                if (filterCategory !== 'All Categories') {
-                    filtered = filtered.filter(snag => (snag.header_category || 'Uncategorized') === filterCategory);
-                }
-                
-                if (filterSubcategory !== 'All Subcategories' && filterSubcategory !== 'N/A') {
-                    filtered = filtered.filter(snag => snag.room_name === filterSubcategory);
-                }
-
-                // SIMPLIFIED GROUPING: Group only by the main category
-                const grouped = filtered.reduce((acc, snag) => {
-                    const catKey = snag.header_category || 'Uncategorized';
-                    if (!acc[catKey]) acc[catKey] = [];
-                    
-                    acc[catKey].push(snag);
-                    return acc;
-                }, {});
-
-                return grouped;
-
-            }, [snags, filterCategory, filterSubcategory]);
-
-            const availableSubcategoriesForFilter = useMemo(() => {
-                if (filterCategory === 'All Categories') {
-                    const allSubs = new Set();
-                    Object.values(allSubcategories).forEach(arr => arr.forEach(sub => allSubs.add(sub)));
-                    return Array.from(allSubs).sort();
-                }
-                return allSubcategories[filterCategory] || [];
-            }, [filterCategory, allSubcategories]);
-
-
-            // --- MODAL COMPONENTS (As before) ---
-
-            const CustomModal = ({ modal, closeModal }) => {
-                if (!modal) return null;
-
-                const handleAction = () => {
-                    modal.action();
-                    closeModal();
-                };
-
-                return (
-                    <div className="modal" onClick={closeModal}>
-                        <div className="modal-content transform transition-all" onClick={(e) => e.stopPropagation()}>
-                            <div className="flex items-center space-x-3 mb-4 border-b pb-3 border-slate-100">
-                                <AlertIcon className="w-6 h-6 text-red-500"/>
-                                <h3 className="text-xl font-bold text-slate-800">Confirm Deletion</h3>
-                            </div>
-                            <p className="text-slate-600 mb-8">{modal.message}</p>
-                            <div className="flex justify-end space-x-3">
-                                <button
-                                    onClick={closeModal}
-                                    className="px-6 py-2.5 bg-slate-100 text-slate-700 font-semibold rounded-xl hover:bg-slate-200 transition shadow-sm"
-                                >
-                                    Cancel
-                                </button>
-                                <button
-                                    onClick={handleAction}
-                                    className="px-6 py-2.5 bg-red-600 text-white font-semibold rounded-xl hover:bg-red-700 transition shadow-md"
-                                >
-                                    Delete Item
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                );
+            const deleteRoomThumbnail = (roomId) => {
+                if (!canEdit()) return;
+                setRooms(rooms.map(r => r.id === roomId ? { ...r, thumbnail: null } : r));
             };
 
-            const LinkInputModal = ({ linkModal, closeModal, onLinkSubmit }) => {
-                if (!linkModal) return null;
-                const [linkText, setLinkText] = useState('');
-                const [linkUrl, setLinkUrl] = useState('');
+            const deleteRoom = (roomId) => {
+                if (!canEdit()) return;
+                setRooms(rooms.filter(r => r.id !== roomId));
+                setSnags(snags.filter(s => s.roomId !== roomId));
+                if (selectedRoom?.id === roomId) setSelectedRoom(null);
+            };
 
-                const handleSubmit = (e) => {
-                    e.preventDefault();
-                    if (linkText.trim() && linkUrl.trim()) {
-                        const markdownLink = `[${linkText.trim()}](${linkUrl.trim()})`;
-                        onLinkSubmit(markdownLink, linkModal.target);
-                        closeModal();
+            const addSnag = () => {
+                if (!canEdit() || !newSnagText.trim() || !selectedRoom) return;
+                const newSnag = {
+                    id: Date.now(),
+                    roomId: selectedRoom.id,
+                    text: newSnagText.trim(),
+                    completed: false,
+                    createdAt: new Date().toISOString(),
+                    photos: [],
+                    links: []
+                };
+                setSnags([...snags, newSnag]);
+                setNewSnagText('');
+            };
+
+            const toggleSnag = (snagId) => {
+                if (!canEdit()) return;
+                setSnags(snags.map(s => s.id === snagId ? { ...s, completed: !s.completed } : s));
+            };
+
+            const deleteSnag = (snagId) => {
+                if (!canEdit()) return;
+                setSnags(snags.filter(s => s.id !== snagId));
+            };
+
+            const startEditSnag = (snag) => {
+                if (!canEdit()) return;
+                setEditingSnag(snag.id);
+                setEditSnagText(snag.text);
+            };
+
+            const saveEditSnag = (snagId) => {
+                if (!canEdit() || !editSnagText.trim()) return;
+                setSnags(snags.map(s => s.id === snagId ? { ...s, text: editSnagText.trim() } : s));
+                setEditingSnag(null);
+                setEditSnagText('');
+            };
+
+            const cancelEditSnag = () => {
+                setEditingSnag(null);
+                setEditSnagText('');
+            };
+
+            const addPhoto = (snagId, file) => {
+                if (!canEdit() || !file || !file.type.startsWith('image/')) return;
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const photoData = {
+                        id: Date.now(),
+                        data: e.target.result,
+                        name: file.name,
+                        addedAt: new Date().toISOString()
+                    };
+                    setSnags(snags.map(s => s.id === snagId ? { ...s, photos: [...(s.photos || []), photoData] } : s));
+                };
+                reader.readAsDataURL(file);
+            };
+
+            const deletePhoto = (snagId, photoId) => {
+                if (!canEdit()) return;
+                setSnags(snags.map(s => s.id === snagId ? { ...s, photos: s.photos.filter(p => p.id !== photoId) } : s));
+            };
+
+            const addLink = (snagId) => {
+                if (!canEdit() || !linkText.trim() || !linkUrl.trim()) return;
+                let url = linkUrl.trim();
+                if (!url.startsWith('http://') && !url.startsWith('https://')) {
+                    url = 'https://' + url;
+                }
+                const newLink = { id: Date.now(), text: linkText.trim(), url: url };
+                setSnags(snags.map(s => s.id === snagId ? { ...s, links: [...(s.links || []), newLink] } : s));
+                setEditingLink(null);
+                setLinkText('');
+                setLinkUrl('');
+            };
+
+            const deleteLink = (snagId, linkId) => {
+                if (!canEdit()) return;
+                setSnags(snags.map(s => s.id === snagId ? { ...s, links: (s.links || []).filter(l => l.id !== linkId) } : s));
+            };
+
+            const getRoomSnags = (roomId) => snags.filter(s => s.roomId === roomId);
+
+            const handleDragStart = (e, room) => {
+                if (!canEdit()) return;
+                setDraggedRoom(room);
+                e.dataTransfer.effectAllowed = 'move';
+            };
+
+            const handleDragOver = (e) => {
+                e.preventDefault();
+                e.dataTransfer.dropEffect = 'move';
+            };
+
+            const handleDrop = (e, targetRoom) => {
+                if (!canEdit()) return;
+                e.preventDefault();
+                if (!draggedRoom || draggedRoom.id === targetRoom.id) return;
+
+                const draggedIndex = rooms.findIndex(r => r.id === draggedRoom.id);
+                const targetIndex = rooms.findIndex(r => r.id === targetRoom.id);
+                const newRooms = [...rooms];
+                newRooms.splice(draggedIndex, 1);
+                newRooms.splice(targetIndex, 0, draggedRoom);
+                setRooms(newRooms);
+                setDraggedRoom(null);
+            };
+
+            const handleDragEnd = () => setDraggedRoom(null);
+
+            const downloadBackup = () => {
+                const data = { rooms, snags, savedDate: new Date().toISOString() };
+                const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'lodge-backup.json';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            };
+
+            const formatTime = (timestamp) => {
+                if (!timestamp) return '';
+                return new Date(timestamp).toLocaleTimeString();
+            };
+
+            const getStatusIndicator = () => {
+                if (!isSignedIn) {
+                    return (
+                        <div className="flex items-center gap-2 text-sm text-slate-600">
+                            <CloudOff size={16} />
+                            <span>Local Mode</span>
+                        </div>
+                    );
+                }
+
+                if (isSyncing) {
+                    return (
+                        <div className="flex items-center gap-2 text-sm text-blue-600">
+                            <Cloud size={16} className="animate-pulse" />
+                            <span>Syncing...</span>
+                        </div>
+                    );
+                }
+
+                if (!isOnline) {
+                    if (allowOfflineEdit) {
+                        return (
+                            <div className="flex items-center gap-2 text-sm text-orange-600">
+                                <Unlock size={16} />
+                                <span>Offline - Editing Enabled</span>
+                            </div>
+                        );
                     }
-                };
+                    return (
+                        <div className="flex items-center gap-2 text-sm text-slate-600">
+                            <Lock size={16} />
+                            <span>Offline - Read Only</span>
+                        </div>
+                    );
+                }
 
                 return (
-                    <div className="modal" onClick={closeModal}>
-                        <form className="modal-content" onClick={(e) => e.stopPropagation()} onSubmit={handleSubmit}>
-                            <div className="flex items-center space-x-3 mb-4 border-b pb-3 border-slate-100">
-                                <LinkIcon className="w-6 h-6 text-primary"/>
-                                <h3 className="text-xl font-bold text-slate-800">Embed Link</h3>
-                            </div>
-                            
-                            <label className="block text-sm font-medium text-slate-700 mb-1">Link Text</label>
-                            <input
-                                type="text"
-                                placeholder="e.g., replacement sink on Amazon"
-                                value={linkText}
-                                onChange={(e) => setLinkText(e.target.value)}
-                                className="w-full p-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary mb-4"
-                                required
-                            />
-
-                            <label className="block text-sm font-medium text-slate-700 mb-1">Full URL</label>
-                            <input
-                                type="url"
-                                placeholder="e.g., https://www.amazon.com/sink-model-xyz"
-                                value={linkUrl}
-                                onChange={(e) => setLinkUrl(e.target.value)}
-                                className="w-full p-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary mb-6"
-                                required
-                            />
-
-                            <div className="flex justify-end space-x-3">
-                                <button
-                                    type="button"
-                                    onClick={closeModal}
-                                    className="px-6 py-2.5 bg-slate-100 text-slate-700 font-semibold rounded-xl hover:bg-slate-200 transition shadow-sm"
-                                >
-                                    Cancel
-                                </button>
-                                <button
-                                    type="submit"
-                                    className="px-6 py-2.5 bg-primary text-white font-semibold rounded-xl hover:bg-blue-900 transition shadow-md disabled:opacity-50"
-                                    disabled={!linkText.trim() || !linkUrl.trim()}
-                                >
-                                    Insert Link
-                                </button>
-                            </div>
-                        </form>
+                    <div className="flex items-center gap-2 text-sm text-green-600">
+                        <Cloud size={16} />
+                        <span>Online{lastSyncTime && ` - ${formatTime(lastSyncTime)}`}</span>
                     </div>
                 );
             };
-
-
-            // --- SNAG ITEM COMPONENT ---
-
-            const SnagItem = ({ snag }) => {
-                const isEditing = editingSnagId === snag.id;
-
-                const statusColor = snag.status === 'closed' ? 'border-status-closed' : 'border-status-open';
-                const buttonBg = snag.status === 'closed' ? 'bg-status-closed hover:bg-green-600' : 'bg-status-open hover:bg-amber-600';
-                
-                return (
-                    <div className={`snag-card p-5 rounded-xl border-l-8 ${statusColor} bg-white transition duration-300 mb-4 flex flex-col lg:flex-row items-start lg:items-center justify-between`}>
-                        <div className="flex-grow w-full lg:w-auto">
-                            {/* Category and Subcategory Labels (Tags) */}
-                            <div className="flex flex-wrap items-center gap-2 mb-2">
-                                <span className="text-xs font-bold uppercase tracking-wider text-slate-600 bg-slate-100 px-2 py-0.5 rounded-full">
-                                    <MapPin className="w-3 h-3 inline mr-1 -mt-0.5" /> {snag.room_name || 'N/A'}
-                                </span>
-                            </div>
-
-                            {isEditing ? (
-                                <>
-                                    <textarea
-                                        rows="3"
-                                        value={editingSnagText}
-                                        onChange={(e) => setEditingSnagText(e.target.value)}
-                                        className="w-full text-lg font-medium p-3 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary mb-3"
-                                        placeholder="Enter snag detail..."
-                                    />
-                                    <div className="flex flex-wrap space-x-2 mb-3">
-                                        <input
-                                            type="text"
-                                            list="edit-category-list"
-                                            value={editingSnagCategory}
-                                            onChange={(e) => setEditingSnagCategory(e.target.value)}
-                                            placeholder="Edit Category"
-                                            className="text-sm p-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-primary w-full sm:w-40 mb-2 sm:mb-0"
-                                        />
-                                        <datalist id="edit-category-list">
-                                            {allCategories.map(cat => (<option key={cat} value={cat} />))}
-                                        </datalist>
-
-                                        <input
-                                            type="text"
-                                            list="edit-subcategory-list"
-                                            value={editingSnagSubcategory}
-                                            onChange={(e) => setEditingSnagSubcategory(e.target.value)}
-                                            placeholder="Edit Subcategory"
-                                            className="text-sm p-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-primary w-full sm:w-40 mb-2 sm:mb-0"
-                                        />
-                                        <datalist id="edit-subcategory-list">
-                                            {(allSubcategories[editingSnagCategory] || []).map(sub => (<option key={sub} value={sub} />))}
-                                        </datalist>
-                                        
-                                        <button
-                                            type="button"
-                                            onClick={() => setLinkModal({ target: 'edit', currentText: editingSnagText })}
-                                            className="p-2 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-lg transition text-sm flex items-center shadow-sm"
-                                            title="Add a clickable link to the snag text"
-                                        >
-                                            <LinkIcon className="w-4 h-4 mr-1" /> Link
-                                        </button>
-                                    </div>
-                                </>
-                            ) : (
-                                <p 
-                                    className={`snag-description text-lg font-medium break-words pr-4 ${snag.status === 'closed' ? 'text-slate-500 line-through' : 'text-slate-800'}`}
-                                    dangerouslySetInnerHTML={renderMarkdownLinks(snag.text)}
-                                />
-                            )}
-
-                            <div className="flex flex-wrap items-center mt-3 space-x-3">
-                                {snag.photo_data && (
-                                    <button 
-                                        onClick={() => setViewingPhoto({ data: snag.photo_data, text: snag.text })}
-                                        className="text-primary hover:text-blue-900 text-sm font-semibold flex items-center p-1 rounded-full bg-blue-50 hover:bg-blue-100 transition"
-                                    >
-                                        <Camera className="w-4 h-4 mr-1" /> View Photo
-                                    </button>
-                                )}
-                                
-                                {!isEditing && (
-                                    <label htmlFor={`photo-upload-${snag.id}`} className="cursor-pointer text-slate-600 hover:text-slate-800 text-sm font-semibold flex items-center p-1 rounded-full bg-slate-100 hover:bg-slate-200 transition">
-                                        <Camera className="w-4 h-4 mr-1" /> Add Photo
-                                        <input 
-                                            id={`photo-upload-${snag.id}`} 
-                                            type="file" 
-                                            accept="image/*" 
-                                            className="hidden" 
-                                            onChange={(e) => handlePhotoUpload(e, snag.id)}
-                                        />
-                                    </label>
-                                )}
-                            </div>
-                        </div>
-                        
-                        {/* Action Buttons */}
-                        <div className="flex items-center space-x-2 mt-4 lg:mt-0 lg:ml-4 flex-shrink-0">
-                            {isEditing ? (
-                                <button 
-                                    onClick={() => saveEdit(snag.id)}
-                                    className="p-3 bg-primary hover:bg-blue-900 text-white rounded-full transition shadow-md"
-                                    title="Save Edit"
-                                >
-                                    <Check className="w-5 h-5" />
-                                </button>
-                            ) : (
-                                <button 
-                                    onClick={() => startEdit(snag)}
-                                    className="p-3 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-full transition shadow-sm"
-                                    title="Edit Snag"
-                                >
-                                    <Edit className="w-5 h-5" />
-                                </button>
-                            )}
-                            
-                            <button 
-                                onClick={() => toggleSnagStatus(snag)}
-                                className={`p-3 rounded-full transition shadow-md ${buttonBg} text-white`}
-                                title={snag.status === 'open' ? 'Mark Complete' : 'Mark Open'}
-                            >
-                                <Check className="w-5 h-5" />
-                            </button>
-                            <button 
-                                onClick={() => handleDeleteRequest(snag)}
-                                className="p-3 bg-red-600 hover:bg-red-700 text-white rounded-full transition shadow-md"
-                                title="Delete Snag"
-                            >
-                                <Trash className="w-5 h-5" />
-                            </button>
-                        </div>
-                    </div>
-                );
-            };
-            
-            // Render Grouped Snags (Simplified to show only Category Headers)
-            const renderCategoryGroup = (category) => {
-                const categorySnags = filteredSnags[category];
-                if (!categorySnags || categorySnags.length === 0) return null;
-
-                const openSnags = categorySnags.filter(s => s.status === 'open');
-                const closedSnags = categorySnags.filter(s => s.status === 'closed');
-                
-                return (
-                    <div key={category} className="mb-10">
-                        {/* Single prominent Category Header */}
-                        <div className="category-header p-4 rounded-xl mb-6 shadow-md border-l-4 border-primary">
-                            <h2 className="text-2xl font-extrabold text-slate-800 flex items-center">
-                                <FolderOpen className="w-6 h-6 mr-3 text-primary" /> {category}
-                                <span className="ml-4 text-base font-bold bg-primary text-white px-3 py-1 rounded-full shadow-sm">
-                                    {openSnags.length} Open
-                                </span>
-                            </h2>
-                        </div>
-
-                        {/* Open Snags List */}
-                        <div className="space-y-4">
-                            {openSnags.map(snag => <SnagItem key={snag.id} snag={snag} />)}
-                        </div>
-
-                        {/* Closed Snags List (Separated) */}
-                        {closedSnags.length > 0 && (
-                            <div className="mt-10 pt-6 border-t border-slate-300">
-                                <h4 className="text-xl font-semibold text-accent mb-4 flex items-center">
-                                    <Check className="w-6 h-6 mr-2" /> Completed ({closedSnags.length})
-                                </h4>
-                                <div className="space-y-4">
-                                    {closedSnags.map(snag => <SnagItem key={snag.id} snag={snag} />)}
-                                </div>
-                            </div>
-                        )}
-                    </div>
-                );
-            };
-
-            const allCategoryKeys = Object.keys(filteredSnags).sort();
 
             return (
-                <div className="min-h-screen bg-gray-100">
-                    {/* Modals */}
-                    <CustomModal modal={modal} closeModal={() => setModal(null)} />
-                    <LinkInputModal linkModal={linkModal} closeModal={() => setLinkModal(null)} onLinkSubmit={injectLink} />
-
-                    {/* Photo Viewer Modal */}
-                    {viewingPhoto && (
-                        <div className="fixed inset-0 bg-black bg-opacity-90 flex items-center justify-center z-50 p-4" onClick={() => setViewingPhoto(null)}>
-                            <div className="relative max-w-4xl max-h-full">
-                                <button onClick={() => setViewingPhoto(null)} className="absolute -top-10 right-0 p-3 bg-white text-slate-800 rounded-full hover:bg-slate-100 transition shadow-lg">
-                                    <X className="w-6 h-6" />
-                                </button>
-                                <img src={viewingPhoto.data} alt={`Snag photo: ${viewingPhoto.text.substring(0, 30)}...`} className="max-w-full max-h-[90vh] object-contain rounded-lg shadow-xl" />
-                                <div className="mt-3 px-3 py-1 bg-black bg-opacity-50 text-white text-sm text-center rounded-lg max-w-full overflow-hidden text-ellipsis whitespace-nowrap">
-                                    {viewingPhoto.text}
+                <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-4">
+                    <div className="max-w-6xl mx-auto">
+                        <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
+                            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
+                                <div>
+                                    <div className="flex items-baseline gap-3">
+                                        <h1 className="text-3xl font-bold text-slate-800">Lodge Build Tracker</h1>
+                                        <span className="text-sm text-slate-400">v2.3</span>
+                                    </div>
+                                    <div className="mt-2">{getStatusIndicator()}</div>
                                 </div>
+                                
+                                <div className="flex flex-wrap gap-2">
+                                    {!isSignedIn ? (
+                                        <button
+                                            onClick={handleSignIn}
+                                            disabled={!gapiReady}
+                                            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition disabled:opacity-50"
+                                        >
+                                            <Cloud size={18} />
+                                            Sign in with Google
+                                        </button>
+                                    ) : (
+                                        <>
+                                            <button
+                                                onClick={downloadBackup}
+                                                className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition"
+                                            >
+                                                <Download size={18} />
+                                                <span className="hidden sm:inline">Backup</span>
+                                            </button>
+                                            <button
+                                                onClick={handleSignOut}
+                                                className="flex items-center gap-2 px-4 py-2 bg-slate-600 text-white rounded-lg hover:bg-slate-700 transition"
+                                            >
+                                                Sign Out
+                                            </button>
+                                        </>
+                                    )}
+                                </div>
+                            </div>
+                            
+                            {isSignedIn && !isOnline && !allowOfflineEdit && (
+                                <div className="bg-orange-50 border border-orange-200 rounded-lg p-3 mb-4">
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-sm text-orange-800">
+                                            ⚠️ Offline - Viewing only. Enable editing if you're working solo.
+                                        </span>
+                                        <button
+                                            onClick={() => setAllowOfflineEdit(true)}
+                                            className="flex items-center gap-1 px-3 py-1 bg-orange-600 text-white text-sm rounded hover:bg-orange-700 transition"
+                                        >
+                                            <Unlock size={14} />
+                                            Allow Editing
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+                            
+                            {isSignedIn && !isOnline && allowOfflineEdit && (
+                                <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4">
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-sm text-red-800">
+                                            ⚠️ Offline editing enabled - Changes will sync when back online
+                                        </span>
+                                        <button
+                                            onClick={() => setAllowOfflineEdit(false)}
+                                            className="flex items-center gap-1 px-3 py-1 bg-red-600 text-white text-sm rounded hover:bg-red-700 transition"
+                                        >
+                                            <Lock size={14} />
+                                            Disable
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="grid md:grid-cols-3 gap-6">
+                            <div className="bg-white rounded-lg shadow-lg p-6">
+                                <div className="flex justify-between items-center mb-4">
+                                    <h2 className="text-xl font-bold text-slate-800">Rooms</h2>
+                                    <button
+                                        onClick={() => canEdit() && setShowAddRoom(!showAddRoom)}
+                                        disabled={!canEdit()}
+                                        className="flex items-center gap-1 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                                    >
+                                        <Home size={18} />
+                                        <Plus size={18} />
+                                    </button>
+                                </div>
+
+                                {showAddRoom && (
+                                    <div className="mb-4 flex gap-2">
+                                        <input
+                                            type="text"
+                                            value={newRoomName}
+                                            onChange={(e) => setNewRoomName(e.target.value)}
+                                            onKeyPress={(e) => e.key === 'Enter' && addRoom()}
+                                            placeholder="Room name..."
+                                            className="flex-1 px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        />
+                                        <button
+                                            onClick={addRoom}
+                                            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition"
+                                        >
+                                            Add
+                                        </button>
+                                    </div>
+                                )}
+
+                                <div className="space-y-2">
+                                    {rooms.map(room => {
+                                        const roomSnagCount = getRoomSnags(room.id).length;
+                                        const roomPendingCount = getRoomSnags(room.id).filter(s => !s.completed).length;
+                                        const isSelected = selectedRoom?.id === room.id;
+                                        const roomSnags = isSelected ? getRoomSnags(room.id) : [];
+                                        const pendingSnags = roomSnags.filter(s => !s.completed);
+                                        const completedSnags = roomSnags.filter(s => s.completed);
+                                        
+                                        return (
+                                            <div key={room.id}>
+                                                <div
+                                                    draggable={canEdit()}
+                                                    onDragStart={(e) => handleDragStart(e, room)}
+                                                    onDragOver={handleDragOver}
+                                                    onDrop={(e) => handleDrop(e, room)}
+                                                    onDragEnd={handleDragEnd}
+                                                    className={`p-3 rounded-lg cursor-pointer transition ${
+                                                        isSelected
+                                                            ? 'bg-blue-100 border-2 border-blue-500'
+                                                            : 'bg-slate-50 hover:bg-slate-100 border-2 border-transparent'
+                                                    } ${draggedRoom?.id === room.id ? 'opacity-50' : ''}`}
+                                                    onClick={() => setSelectedRoom(room)}
+                                                >
+                                                    <div className="flex justify-between items-center gap-2">
+                                                        <div className="flex items-center gap-2 flex-1">
+                                                            {room.thumbnail ? (
+                                                                <div className="relative group flex-shrink-0">
+                                                                    <img 
+                                                                        src={room.thumbnail} 
+                                                                        alt={room.name}
+                                                                        className="w-12 h-12 object-cover rounded border-2 border-slate-300"
+                                                                    />
+                                                                    {canEdit() && (
+                                                                        <button
+                                                                            onClick={(e) => {
+                                                                                e.stopPropagation();
+                                                                                deleteRoomThumbnail(room.id);
+                                                                            }}
+                                                                            className="absolute -top-1 -right-1 p-0.5 bg-red-600 text-white rounded-full opacity-0 group-hover:opacity-100 transition"
+                                                                        >
+                                                                            <X size={10} />
+                                                                        </button>
+                                                                    )}
+                                                                </div>
+                                                            ) : (
+                                                                canEdit() && (
+                                                                    <label 
+                                                                        onClick={(e) => e.stopPropagation()}
+                                                                        className="w-12 h-12 flex items-center justify-center bg-slate-200 rounded border-2 border-dashed border-slate-400 hover:bg-slate-300 cursor-pointer flex-shrink-0"
+                                                                    >
+                                                                        <Camera size={20} className="text-slate-500" />
+                                                                        <input 
+                                                                            type="file" 
+                                                                            accept="image/*"
+                                                                            onChange={(e) => e.target.files[0] && addRoomThumbnail(room.id, e.target.files[0])}
+                                                                            className="hidden" 
+                                                                        />
+                                                                    </label>
+                                                                )
+                                                            )}
+                                                            <div>
+                                                                <div className="font-semibold text-slate-800">{room.name}</div>
+                                                                <div className="text-sm text-slate-600">
+                                                                    {roomPendingCount > 0 ? (
+                                                                        <span className="text-orange-600">{roomPendingCount} pending</span>
+                                                                    ) : roomSnagCount > 0 ? (
+                                                                        <span className="text-green-600">All complete</span>
+                                                                    ) : (
+                                                                        <span className="text-slate-400">No snags</span>
+                                                                    )}
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                        {canEdit() && (
+                                                            <button
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    if (confirm(`Delete ${room.name}?`)) deleteRoom(room.id);
+                                                                }}
+                                                                className="p-1 text-red-600 hover:bg-red-100 rounded transition flex-shrink-0"
+                                                            >
+                                                                <Trash2 size={18} />
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                </div>
+
+                                                {isSelected && (
+                                                    <div className="ml-4 mt-2 space-y-2">
+                                                        {canEdit() && (
+                                                            <div className="flex gap-2">
+                                                                <input
+                                                                    type="text"
+                                                                    value={newSnagText}
+                                                                    onChange={(e) => setNewSnagText(e.target.value)}
+                                                                    onKeyPress={(e) => e.key === 'Enter' && addSnag()}
+                                                                    placeholder="Add a snag..."
+                                                                    className="flex-1 px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                                                />
+                                                                <button
+                                                                    onClick={addSnag}
+                                                                    className="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition font-semibold"
+                                                                >
+                                                                    Add
+                                                                </button>
+                                                            </div>
+                                                        )}
+
+                                                        {pendingSnags.map(snag => (
+                                                            <div key={snag.id} className="p-2 bg-orange-50 border border-orange-200 rounded-lg text-sm">
+                                                                <div className="flex items-start gap-2 mb-1">
+                                                                    <button
+                                                                        onClick={() => toggleSnag(snag.id)}
+                                                                        disabled={!canEdit()}
+                                                                        className="mt-0.5 p-1 border-2 border-slate-300 rounded hover:bg-green-100 hover:border-green-500 transition flex-shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
+                                                                    >
+                                                                        <Check size={12} className="text-transparent" />
+                                                                    </button>
+                                                                    {editingSnag === snag.id ? (
+                                                                        <div className="flex-1 flex gap-1">
+                                                                            <input
+                                                                                type="text"
+                                                                                value={editSnagText}
+                                                                                onChange={(e) => setEditSnagText(e.target.value)}
+                                                                                onKeyPress={(e) => {
+                                                                                    if (e.key === 'Enter') saveEditSnag(snag.id);
+                                                                                    if (e.key === 'Escape') cancelEditSnag();
+                                                                                }}
+                                                                                className="flex-1 px-2 py-1 text-sm border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                                                                autoFocus
+                                                                            />
+                                                                            <button
+                                                                                onClick={() => saveEditSnag(snag.id)}
+                                                                                className="p-1 bg-green-600 text-white rounded hover:bg-green-700 transition"
+                                                                            >
+                                                                                <Check size={14} />
+                                                                            </button>
+                                                                            <button
+                                                                                onClick={cancelEditSnag}
+                                                                                className="p-1 bg-slate-400 text-white rounded hover:bg-slate-500 transition"
+                                                                            >
+                                                                                <X size={14} />
+                                                                            </button>
+                                                                        </div>
+                                                                    ) : (
+                                                                        <div className="flex-1 text-slate-800">{snag.text}</div>
+                                                                    )}
+                                                                    {editingSnag !== snag.id && canEdit() && (
+                                                                        <>
+                                                                            <button
+                                                                                onClick={() => startEditSnag(snag)}
+                                                                                className="p-1 text-blue-600 hover:bg-blue-100 rounded transition flex-shrink-0"
+                                                                            >
+                                                                                <Edit size={14} />
+                                                                            </button>
+                                                                            <button
+                                                                                onClick={() => deleteSnag(snag.id)}
+                                                                                className="p-1 text-red-600 hover:bg-red-100 rounded transition flex-shrink-0"
+                                                                            >
+                                                                                <Trash2 size={14} />
+                                                                            </button>
+                                                                        </>
+                                                                    )}
+                                                                </div>
+                                                                
+                                                                {snag.photos && snag.photos.length > 0 && (
+                                                                    <div className="flex flex-wrap gap-1 mb-1 ml-6">
+                                                                        {snag.photos.map(photo => (
+                                                                            <div key={photo.id} className="relative group">
+                                                                                <img 
+                                                                                    src={photo.data} 
+                                                                                    alt="Snag photo"
+                                                                                    className="w-16 h-16 object-cover rounded border border-slate-200 cursor-pointer hover:border-blue-500 transition"
+                                                                                    onClick={() => setViewingPhoto(photo)}
+                                                                                />
+                                                                                {canEdit() && (
+                                                                                    <button
+                                                                                        onClick={() => deletePhoto(snag.id, photo.id)}
+                                                                                        className="absolute -top-1 -right-1 p-0.5 bg-red-600 text-white rounded-full opacity-0 group-hover:opacity-100 transition"
+                                                                                    >
+                                                                                        <X size={10} />
+                                                                                    </button>
+                                                                                )}
+                                                                            </div>
+                                                                        ))}
+                                                                    </div>
+                                                                )}
+                                                                
+                                                                {snag.links && snag.links.length > 0 && (
+                                                                    <div className="flex flex-wrap gap-2 mb-1 ml-6">
+                                                                        {snag.links.map(link => (
+                                                                            <div key={link.id} className="flex items-center gap-1 bg-blue-50 border border-blue-300 rounded px-2 py-1">
+                                                                                <a 
+                                                                                    href={link.url} 
+                                                                                    target="_blank" 
+                                                                                    rel="noopener noreferrer"
+                                                                                    className="text-blue-600 hover:text-blue-800 underline text-xs"
+                                                                                >
+                                                                                    {link.text}
+                                                                                </a>
+                                                                                {canEdit() && (
+                                                                                    <button
+                                                                                        onClick={() => deleteLink(snag.id, link.id)}
+                                                                                        className="text-red-600 hover:text-red-800"
+                                                                                    >
+                                                                                        <X size={12} />
+                                                                                    </button>
+                                                                                )}
+                                                                            </div>
+                                                                        ))}
+                                                                    </div>
+                                                                )}
+                                                                
+                                                                {canEdit() && (
+                                                                    <div className="ml-6 flex gap-1">
+                                                                        <label className="inline-flex items-center gap-1 px-2 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 transition cursor-pointer">
+                                                                            <Camera size={12} />
+                                                                            Photo
+                                                                            <input 
+                                                                                type="file" 
+                                                                                accept="image/*" 
+                                                                                capture="environment"
+                                                                                onChange={(e) => e.target.files[0] && addPhoto(snag.id, e.target.files[0])}
+                                                                                className="hidden" 
+                                                                            />
+                                                                        </label>
+                                                                        
+                                                                        {editingLink === snag.id ? (
+                                                                            <div className="flex gap-1 items-center">
+                                                                                <input
+                                                                                    type="text"
+                                                                                    value={linkText}
+                                                                                    onChange={(e) => setLinkText(e.target.value)}
+                                                                                    placeholder="Text..."
+                                                                                    className="px-2 py-1 text-xs border border-slate-300 rounded w-20"
+                                                                                />
+                                                                                <input
+                                                                                    type="text"
+                                                                                    value={linkUrl}
+                                                                                    onChange={(e) => setLinkUrl(e.target.value)}
+                                                                                    placeholder="URL..."
+                                                                                    className="px-2 py-1 text-xs border border-slate-300 rounded w-24"
+                                                                                />
+                                                                                <button
+                                                                                    onClick={() => addLink(snag.id)}
+                                                                                    className="px-2 py-1 bg-green-600 text-white text-xs rounded hover:bg-green-700"
+                                                                                >
+                                                                                    ✓
+                                                                                </button>
+                                                                                <button
+                                                                                    onClick={() => {
+                                                                                        setEditingLink(null);
+                                                                                        setLinkText('');
+                                                                                        setLinkUrl('');
+                                                                                    }}
+                                                                                    className="px-2 py-1 bg-slate-400 text-white text-xs rounded hover:bg-slate-500"
+                                                                                >
+                                                                                    ✕
+                                                                                </button>
+                                                                            </div>
+                                                                        ) : (
+                                                                            <button
+                                                                                onClick={() => setEditingLink(snag.id)}
+                                                                                className="inline-flex items-center gap-1 px-2 py-1 bg-purple-600 text-white text-xs rounded hover:bg-purple-700 transition"
+                                                                            >
+                                                                                🔗 Link
+                                                                            </button>
+                                                                        )}
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        ))}
+
+                                                        {completedSnags.map(snag => (
+                                                            <div key={snag.id} className="p-2 bg-green-50 border border-green-200 rounded-lg text-sm">
+                                                                <div className="flex items-start gap-2 mb-1">
+                                                                    <button
+                                                                        onClick={() => toggleSnag(snag.id)}
+                                                                        disabled={!canEdit()}
+                                                                        className="mt-0.5 p-1 bg-green-500 border-2 border-green-500 rounded hover:bg-green-600 transition flex-shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
+                                                                    >
+                                                                        <Check size={12} className="text-white" />
+                                                                    </button>
+                                                                    <div className="flex-1 text-slate-600 line-through">{snag.text}</div>
+                                                                    {canEdit() && (
+                                                                        <button
+                                                                            onClick={() => deleteSnag(snag.id)}
+                                                                            className="p-1 text-red-600 hover:bg-red-100 rounded transition flex-shrink-0"
+                                                                        >
+                                                                            <Trash2 size={14} />
+                                                                        </button>
+                                                                    )}
+                                                                </div>
+                                                                
+                                                                {snag.photos && snag.photos.length > 0 && (
+                                                                    <div className="flex flex-wrap gap-1 ml-6">
+                                                                        {snag.photos.map(photo => (
+                                                                            <img 
+                                                                                key={photo.id}
+                                                                                src={photo.data} 
+                                                                                alt="Snag photo"
+                                                                                className="w-16 h-16 object-cover rounded border border-slate-200 cursor-pointer hover:border-blue-500 transition opacity-60"
+                                                                                onClick={() => setViewingPhoto(photo)}
+                                                                            />
+                                                                        ))}
+                                                                    </div>
+                                                                )}
+                                                                
+                                                                {snag.links && snag.links.length > 0 && (
+                                                                    <div className="flex flex-wrap gap-2 ml-6">
+                                                                        {snag.links.map(link => (
+                                                                            <a 
+                                                                                key={link.id}
+                                                                                href={link.url} 
+                                                                                target="_blank" 
+                                                                                rel="noopener noreferrer"
+                                                                                className="text-blue-600 hover:text-blue-800 underline text-xs bg-blue-50 border border-blue-300 rounded px-2 py-1"
+                                                                            >
+                                                                                {link.text}
+                                                                            </a>
+                                                                        ))}
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        ))}
+
+                                                        {roomSnags.length === 0 && (
+                                                            <div className="text-center py-4 text-slate-400 text-xs">
+                                                                No snags yet
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+
+                            <div className="md:col-span-2 bg-white rounded-lg shadow-lg p-6">
+                                <div className="text-center py-12 text-slate-400">
+                                    <h2 className="text-2xl font-bold text-slate-700 mb-4">How to Use v2.0</h2>
+                                    <div className="text-left max-w-md mx-auto space-y-3 text-sm text-slate-600">
+                                        <p>✓ Sign in with Google for cloud sync</p>
+                                        <p>✓ Data syncs automatically across devices</p>
+                                        <p>✓ Works offline (read-only by default)</p>
+                                        <p>✓ Enable offline editing when working solo</p>
+                                        <p>✓ Click rooms to expand and add snags</p>
+                                        <p>✓ Edit snags with the pencil icon</p>
+                                        <p>✓ Attach photos and links to snags</p>
+                                        <p>✓ Download manual backup anytime</p>
+                                        <p className="text-blue-600 font-semibold mt-4">☁️ One file, all devices in sync!</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {viewingPhoto && (
+                        <div 
+                            className="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50 p-4"
+                            onClick={() => setViewingPhoto(null)}
+                        >
+                            <div className="relative max-w-4xl max-h-full">
+                                <button
+                                    onClick={() => setViewingPhoto(null)}
+                                    className="absolute -top-10 right-0 p-2 bg-white text-slate-800 rounded-full hover:bg-slate-100 transition"
+                                >
+                                    <X size={24} />
+                                </button>
+                                <img 
+                                    src={viewingPhoto.data} 
+                                    alt="Full size"
+                                    className="max-w-full max-h-[90vh] object-contain rounded-lg"
+                                />
                             </div>
                         </div>
                     )}
-
-                    {/* Header */}
-                    <header className="bg-white shadow-md sticky top-0 z-10">
-                        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
-                            <h1 className="text-3xl font-extrabold text-slate-800">🛠️ Project Snag Tracker</h1>
-                            <span className="text-sm text-slate-500 hidden sm:block">Cloud Version {APP_VERSION}</span>
-                        </div>
-                    </header>
-                    
-                    <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 pb-12 grid grid-cols-1 lg:grid-cols-3 gap-8">
-
-                        {/* Sidebar / Controls Column (Sticky on Desktop) */}
-                        <div className="lg:col-span-1 space-y-8">
-                            
-                            {/* Status and Filters Card */}
-                            <div className="sticky top-20 p-6 bg-white rounded-xl shadow-lg border-t-4 border-primary">
-                                <h2 className="text-xl font-bold text-primary mb-4 flex items-center"><Database className="w-5 h-5 mr-2"/> Cloud Status</h2>
-                                <p className={`text-sm font-medium p-3 rounded-xl mb-6 ${supabaseClient ? 'bg-blue-50 text-primary' : 'bg-red-50 text-red-600'}`}>
-                                    {status}
-                                </p>
-
-                                <h3 className="text-lg font-bold text-slate-700 mb-4 flex items-center border-t pt-4"><Filter className="w-5 h-5 mr-2"/> Filter View</h3>
-                                
-                                <label className="block text-xs font-medium text-slate-500 mb-1">Filter by Category</label>
-                                <select
-                                    value={filterCategory}
-                                    onChange={(e) => {
-                                        setFilterCategory(e.target.value);
-                                        setFilterSubcategory('All Subcategories');
-                                    }}
-                                    className="w-full p-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary bg-white mb-4 transition"
-                                >
-                                    <option value="All Categories">All Categories ({snags.length})</option>
-                                    {allCategories.map(cat => (
-                                        <option key={cat} value={cat}>
-                                            {cat} ({snags.filter(s => (s.header_category || 'Uncategorized') === cat).length})
-                                        </option>
-                                    ))}
-                                </select>
-
-                                <label className="block text-xs font-medium text-slate-500 mb-1">Filter by Sub-Category</label>
-                                <select
-                                    value={filterSubcategory}
-                                    onChange={(e) => setFilterSubcategory(e.target.value)}
-                                    className="w-full p-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary bg-white transition"
-                                    disabled={filterCategory === 'All Categories'}
-                                >
-                                    <option value="All Subcategories">All Subcategories</option>
-                                    {availableSubcategoriesForFilter.map(sub => (
-                                        <option key={sub} value={sub}>{sub}</option>
-                                    ))}
-                                </select>
-                            </div>
-                            
-                            {/* Add New Snag Form Card */}
-                            <form onSubmit={addSnag} className="p-6 bg-white rounded-xl shadow-lg border-t-4 border-accent">
-                                <h2 className="text-xl font-semibold text-accent mb-4 flex items-center"><Plus className="w-5 h-5 mr-2"/> Add New Item</h2>
-                                
-                                <div className="space-y-3 mb-4">
-                                    <div>
-                                        <label className="block text-xs font-medium text-slate-500 mb-1">Header Category</label>
-                                        <input
-                                            type="text"
-                                            list="new-category-list"
-                                            placeholder="Enter or select category"
-                                            value={newSnagCategory}
-                                            onChange={handleNewCategoryChange}
-                                            className="w-full p-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary bg-white transition"
-                                            required
-                                        />
-                                        <datalist id="new-category-list">
-                                            {allCategories.map(cat => (<option key={cat} value={cat} />))}
-                                        </datalist>
-                                    </div>
-                                    
-                                    <div>
-                                        <label className="block text-xs font-medium text-slate-500 mb-1">Sub-Category (Location)</label>
-                                        <input
-                                            type="text"
-                                            list="new-subcategory-list"
-                                            placeholder="Enter or select sub-category"
-                                            value={newSnagSubcategory}
-                                            onChange={handleNewSubcategoryChange}
-                                            className="w-full p-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary bg-white transition"
-                                            required
-                                        />
-                                        <datalist id="new-subcategory-list">
-                                            {(allSubcategories[newSnagCategory] || []).map(sub => (<option key={sub} value={sub} />))}
-                                        </datalist>
-                                    </div>
-                                </div>
-                                
-                                <div className="mb-4">
-                                    <label className="block text-xs font-medium text-slate-500 mb-1">Snag Details (Markdown Links Supported)</label>
-                                    <textarea
-                                        rows="3"
-                                        placeholder="E.g., Missing trim on the west window of the [Master Bedroom](http://example.com/photo-1)"
-                                        value={newSnagText}
-                                        onChange={(e) => setNewSnagText(e.target.value)}
-                                        className="w-full p-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary transition"
-                                        required
-                                    />
-                                </div>
-
-                                <div className="flex space-x-3 mb-4">
-                                    <button
-                                        type="button"
-                                        onClick={() => setLinkModal({ target: 'new' })}
-                                        className="w-1/2 px-4 py-3 bg-blue-500 hover:bg-blue-600 text-white font-semibold rounded-xl transition shadow-md flex items-center justify-center text-sm"
-                                        title="Add a clickable link to the snag text"
-                                    >
-                                        <LinkIcon className="w-4 h-4 mr-2" /> Add Link
-                                    </button>
-                                    <button 
-                                        type="submit"
-                                        className="w-1/2 px-4 py-3 bg-accent hover:bg-green-600 text-white font-bold rounded-xl transition shadow-md disabled:bg-green-300"
-                                        disabled={!newSnagText.trim() || !supabaseClient}
-                                    >
-                                        Submit Item
-                                    </button>
-                                </div>
-                            </form>
-                        </div>
-
-                        {/* Main Tracker List Column */}
-                        <div className="lg:col-span-2">
-                            {/* Grouped Snag Lists */}
-                            <div className="space-y-10">
-                                {allCategoryKeys.length === 0 && (
-                                    <div className="text-slate-500 p-6 bg-white rounded-xl shadow-lg text-center">
-                                        <AlertIcon className="w-8 h-8 mx-auto mb-3 text-status-open" />
-                                        <p className="font-semibold">No items found.</p>
-                                        <p className="text-sm">Try adding a new item using the form on the left, or check your filter settings.</p>
-                                    </div>
-                                )}
-                                {allCategoryKeys.map(renderCategoryGroup)}
-                            </div>
-                        </div>
-                    </main>
                 </div>
             );
         }
-        
-        ReactDOM.render(<Tracker />, document.getElementById('root'));
+
+        ReactDOM.render(<LodgeSnagTracker />, document.getElementById('root'));
     </script>
 </body>
 </html>
