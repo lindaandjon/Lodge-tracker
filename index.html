@@ -69,7 +69,7 @@
         }
         /* Style for category headers */
         .category-header {
-            background: linear-gradient(to right, #F8FAFC, #E2E8F0); /* Light slate gradient */
+            background: #F1F5F9; /* Slate-100 for a clean look */
         }
     </style>
 </head>
@@ -80,11 +80,10 @@
         const { useState, useEffect, useMemo } = React;
         
         // --- CONFIGURATION ---
-        const APP_VERSION = '9.0 (UI Redesign)'; 
+        const APP_VERSION = '9.1 (Simplified View)'; 
         const TABLE_NAME = 'snags';
 
         // !!! IMPORTANT: REPLACE THESE PLACEHOLDERS WITH YOUR SUPABASE KEYS !!!
-        // NOTE: You must edit this file externally to paste your keys.
         const SUPABASE_URL = 'https://ejozspveaasscxqovitn.supabase.co'; 
         const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVqb3pzcHZlYWFzc2N4cW92aXRuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjA0MzMyOTcsImV4cCI6MjA3NjAwOTI5N30.D--chXcvpMl_gDRY0ZvBcAg3nzwwDAuuFHTB2pgYtZ8';
         // --- END CONFIGURATION ---
@@ -98,7 +97,6 @@
         };
 
         // --- ICONS (Lucide React equivalent SVGs) ---
-        // Icons are crucial for a modern look. Ensure they are correct.
         const X = (props) => <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6L6 18"/><path d="M6 6l12 12"/></svg>;
         const Check = (props) => <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5"/></svg>;
         const Trash = (props) => <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M10 4h4V2h-4z"/></svg>;
@@ -159,7 +157,7 @@
             const [allSubcategories, setAllSubcategories] = useState(INITIAL_CATEGORIES);
 
 
-            // --- SUPABASE INITIALIZATION & LISTENER (Unchanged) ---
+            // --- SUPABASE INITIALIZATION & LISTENER ---
 
             useEffect(() => {
                 if (SUPABASE_URL.includes('PASTE_') || SUPABASE_ANON_KEY.includes('PASTE_')) {
@@ -248,7 +246,7 @@
             }, [supabaseClient]);
 
 
-            // --- SUPABASE CRUD WRAPPERS (Unchanged) ---
+            // --- SUPABASE CRUD WRAPPERS ---
             const addNewSnagToDB = async (snagData) => {
                 if (!supabaseClient) return setStatus('Connection not ready.');
                 
@@ -306,7 +304,7 @@
             };
 
 
-            // --- UI/STATE HANDLERS (Unchanged Logic) ---
+            // --- UI/STATE HANDLERS ---
             const injectLink = (markdownLink, target) => {
                 if (target === 'new') {
                     setNewSnagText(prev => prev.trim() + ' ' + markdownLink + ' ');
@@ -378,7 +376,7 @@
             };
 
 
-            // --- FILTERING AND GROUPING (Unchanged Logic) ---
+            // --- FILTERING AND GROUPING (Simplified Grouping) ---
             
             const filteredSnags = useMemo(() => {
                 let filtered = snags;
@@ -391,14 +389,12 @@
                     filtered = filtered.filter(snag => snag.room_name === filterSubcategory);
                 }
 
+                // SIMPLIFIED GROUPING: Group only by the main category
                 const grouped = filtered.reduce((acc, snag) => {
                     const catKey = snag.header_category || 'Uncategorized';
-                    const subKey = snag.room_name || 'N/A';
-
-                    if (!acc[catKey]) acc[catKey] = {};
-                    if (!acc[catKey][subKey]) acc[catKey][subKey] = [];
+                    if (!acc[catKey]) acc[catKey] = [];
                     
-                    acc[catKey][subKey].push(snag);
+                    acc[catKey].push(snag);
                     return acc;
                 }, {});
 
@@ -416,7 +412,7 @@
             }, [filterCategory, allSubcategories]);
 
 
-            // --- MODAL COMPONENTS (Improved Styling) ---
+            // --- MODAL COMPONENTS (As before) ---
 
             const CustomModal = ({ modal, closeModal }) => {
                 if (!modal) return null;
@@ -517,7 +513,7 @@
             };
 
 
-            // --- SNAG ITEM COMPONENT (Major UI Improvement) ---
+            // --- SNAG ITEM COMPONENT ---
 
             const SnagItem = ({ snag }) => {
                 const isEditing = editingSnagId === snag.id;
@@ -528,11 +524,8 @@
                 return (
                     <div className={`snag-card p-5 rounded-xl border-l-8 ${statusColor} bg-white transition duration-300 mb-4 flex flex-col lg:flex-row items-start lg:items-center justify-between`}>
                         <div className="flex-grow w-full lg:w-auto">
-                            {/* Category and Subcategory Labels */}
+                            {/* Category and Subcategory Labels (Tags) */}
                             <div className="flex flex-wrap items-center gap-2 mb-2">
-                                <span className="text-xs font-bold uppercase tracking-wider text-primary bg-blue-50 px-2 py-0.5 rounded-full">
-                                    <FolderOpen className="w-3 h-3 inline mr-1 -mt-0.5" /> {snag.header_category || 'Uncategorized'}
-                                </span>
                                 <span className="text-xs font-bold uppercase tracking-wider text-slate-600 bg-slate-100 px-2 py-0.5 rounded-full">
                                     <MapPin className="w-3 h-3 inline mr-1 -mt-0.5" /> {snag.room_name || 'N/A'}
                                 </span>
@@ -653,49 +646,42 @@
                 );
             };
             
-            // Render Grouped Snags
+            // Render Grouped Snags (Simplified to show only Category Headers)
             const renderCategoryGroup = (category) => {
-                const subcategoryGroup = filteredSnags[category];
-                if (!subcategoryGroup) return null;
+                const categorySnags = filteredSnags[category];
+                if (!categorySnags || categorySnags.length === 0) return null;
 
-                const subcategoryKeys = Object.keys(subcategoryGroup).sort();
-
+                const openSnags = categorySnags.filter(s => s.status === 'open');
+                const closedSnags = categorySnags.filter(s => s.status === 'closed');
+                
                 return (
                     <div key={category} className="mb-10">
-                        <div className="category-header p-4 rounded-xl mb-6 shadow-sm border-l-4 border-slate-500">
+                        {/* Single prominent Category Header */}
+                        <div className="category-header p-4 rounded-xl mb-6 shadow-md border-l-4 border-primary">
                             <h2 className="text-2xl font-extrabold text-slate-800 flex items-center">
-                                <FolderOpen className="w-6 h-6 mr-3 text-slate-500" /> {category}
+                                <FolderOpen className="w-6 h-6 mr-3 text-primary" /> {category}
+                                <span className="ml-4 text-base font-bold bg-primary text-white px-3 py-1 rounded-full shadow-sm">
+                                    {openSnags.length} Open
+                                </span>
                             </h2>
                         </div>
 
-                        {subcategoryKeys.map(subCategory => {
-                            const openSnags = subcategoryGroup[subCategory].filter(s => s.status === 'open');
-                            const closedSnags = subcategoryGroup[subCategory].filter(s => s.status === 'closed');
+                        {/* Open Snags List */}
+                        <div className="space-y-4">
+                            {openSnags.map(snag => <SnagItem key={snag.id} snag={snag} />)}
+                        </div>
 
-                            return (
-                                <div key={subCategory} className="pl-6 border-l-2 border-slate-200 mb-8">
-                                    <h3 className="text-xl font-semibold text-slate-700 mb-5 mt-4 flex items-center">
-                                        <MapPin className="w-5 h-5 mr-2 text-primary" /> {subCategory} 
-                                        <span className="ml-3 text-sm font-bold bg-primary text-white px-3 py-1 rounded-full shadow-sm">
-                                            {openSnags.length} Open
-                                        </span>
-                                    </h3>
-                                    
-                                    {/* Open Snags */}
-                                    {openSnags.map(snag => <SnagItem key={snag.id} snag={snag} />)}
-
-                                    {/* Closed Snags */}
-                                    {closedSnags.length > 0 && (
-                                        <div className="mt-8 pt-6 border-t border-dashed border-slate-300">
-                                            <h4 className="text-lg font-semibold text-accent mb-3 flex items-center">
-                                                <Check className="w-5 h-5 mr-2" /> Completed ({closedSnags.length})
-                                            </h4>
-                                            {closedSnags.map(snag => <SnagItem key={snag.id} snag={snag} />)}
-                                        </div>
-                                    )}
+                        {/* Closed Snags List (Separated) */}
+                        {closedSnags.length > 0 && (
+                            <div className="mt-10 pt-6 border-t border-slate-300">
+                                <h4 className="text-xl font-semibold text-accent mb-4 flex items-center">
+                                    <Check className="w-6 h-6 mr-2" /> Completed ({closedSnags.length})
+                                </h4>
+                                <div className="space-y-4">
+                                    {closedSnags.map(snag => <SnagItem key={snag.id} snag={snag} />)}
                                 </div>
-                            );
-                        })}
+                            </div>
+                        )}
                     </div>
                 );
             };
