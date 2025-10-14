@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Lodge Build Tracker</title>
+    <title>Sleek Snag Tracker</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
@@ -13,6 +13,12 @@
                     fontFamily: {
                         sans: ['Inter', 'sans-serif'],
                     },
+                    colors: {
+                        'primary': '#1E40AF', // Blue-800
+                        'accent': '#10B981',  // Green-500
+                        'status-open': '#F59E0B', // Amber-500
+                        'status-closed': '#10B981', // Green-500
+                    }
                 }
             }
         }
@@ -21,39 +27,26 @@
     <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
     <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
+    <!-- Supabase Client Library -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     
-    <!-- Firebase Libraries (using type="module" to import functions) -->
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInWithCustomToken, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, collection, query, onSnapshot, doc, setDoc, deleteDoc, updateDoc, addDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-        
-        // Expose Firebase dependencies and environment variables globally for the Babel/React script
-        window.firebaseDependencies = {
-            initializeApp, getAuth, signInWithCustomToken, signInAnonymously, onAuthStateChanged,
-            getFirestore, collection, query, onSnapshot, doc, setDoc, deleteDoc, updateDoc, addDoc
-        };
-        
-        // Pass global Canvas environment variables
-        window.envVars = {
-            appId: typeof __app_id !== 'undefined' ? __app_id : 'default-app-id',
-            firebaseConfig: typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null,
-            authToken: typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null,
-        };
-    </script>
-
     <style>
+        /* Custom styles for the sleek look */
         .snag-card {
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.08), 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+            transition: all 0.2s ease-in-out;
         }
-        /* Style for required modals */
+        .snag-card:hover {
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
+            transform: translateY(-1px);
+        }
         .modal {
             position: fixed;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
-            background-color: rgba(0, 0, 0, 0.5);
+            background-color: rgba(15, 23, 42, 0.8); /* slate-900 opacity 80 */
             display: flex;
             justify-content: center;
             align-items: center;
@@ -61,264 +54,369 @@
         }
         .modal-content {
             background: white;
-            padding: 24px;
-            border-radius: 12px;
-            max-width: 400px;
-            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            padding: 28px;
+            border-radius: 16px;
+            max-width: 480px;
+            width: 90%;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+        }
+        /* Style for rendered markdown links */
+        .snag-description a {
+            color: #2563EB; /* blue-600 */
+            text-decoration: underline;
+            font-weight: 600;
+            word-break: break-word;
+        }
+        /* Style for category headers */
+        .category-header {
+            background: linear-gradient(to right, #F8FAFC, #E2E8F0); /* Light slate gradient */
         }
     </style>
 </head>
-<body class="bg-slate-50 font-sans antialiased">
+<body class="bg-gray-100 font-sans antialiased">
     <div id="root"></div>
 
     <script type="text/babel">
-        const { useState, useEffect, useCallback, useMemo } = React;
+        const { useState, useEffect, useMemo } = React;
         
         // --- CONFIGURATION ---
-        const APP_VERSION = '3.0'; 
-        const COLLECTION_NAME = 'snags';
+        const APP_VERSION = '9.0 (UI Redesign)'; 
+        const TABLE_NAME = 'snags';
 
-        // Initial state for snags (only used if Firestore is empty)
-        const initialSnags = [
-            { id: 1, text: "Example Snag: Check plumbing under master sink.", status: 'open', photo: null, link: null },
-        ];
+        // !!! IMPORTANT: REPLACE THESE PLACEHOLDERS WITH YOUR SUPABASE KEYS !!!
+        // NOTE: You must edit this file externally to paste your keys.
+        const SUPABASE_URL = 'https://ejozspveaasscxqovitn.supabase.co'; 
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVqb3pzcHZlYWFzc2N4cW92aXRuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjA0MzMyOTcsImV4cCI6MjA3NjAwOTI5N30.D--chXcvpMl_gDRY0ZvBcAg3nzwwDAuuFHTB2pgYtZ8';
+        // --- END CONFIGURATION ---
+        
+        // Defines the initial set for first run.
+        const INITIAL_CATEGORIES = {
+            "Lodge": ["Kitchen", "Master Bedroom", "Master Bath", "Hallway", "Utility Room", "Exterior"],
+            "Legal": ["Sols", "Planning", "Deeds", "Contracts"],
+            "Financial": ["Mortgage", "Insurance", "Taxes"],
+            "Admin": ["Permits", "Correspondence", "General"]
+        };
 
-        // Utility: Generate a simple icon/component
-        const X = (props) => <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg>;
+        // --- ICONS (Lucide React equivalent SVGs) ---
+        // Icons are crucial for a modern look. Ensure they are correct.
+        const X = (props) => <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6L6 18"/><path d="M6 6l12 12"/></svg>;
         const Check = (props) => <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5"/></svg>;
-        const Trash = (props) => <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6m3 0V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>;
-        const Edit = (props) => <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>;
-        const Plus = (props) => <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14M5 12h14"/></svg>;
-        const LinkIcon = (props) => <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>;
+        const Trash = (props) => <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M10 4h4V2h-4z"/></svg>;
+        const Edit = (props) => <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5L2 22l1.5-5.5L17 3z"/></svg>;
+        const Plus = (props) => <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14"/><path d="M5 12h14"/></svg>;
         const Camera = (props) => <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>;
-        const Upload = (props) => <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>;
+        const Filter = (props) => <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>;
+        const Database = (props) => <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>;
         const AlertIcon = (props) => <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>;
+        const LinkIcon = (props) => <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>;
+        const FolderOpen = (props) => <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 14l2-2h12a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5c0-1.1.9-2 2-2h4l2 3h10v2"/></svg>;
+        const MapPin = (props) => <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s-8-4.5-8-11.8A8 8 0 0 1 12 2a8 8 0 0 1 8 8.2c0 7.3-8 11.8-8 11.8z"/><circle cx="12" cy="10" r="3"/></svg>;
 
 
-        function LodgeTracker() {
+        // --- UTILITY FUNCTION ---
+        const renderMarkdownLinks = (text) => {
+            if (!text) return { __html: '' };
+            const regex = /\[([^\]]+)\]\(([^)]+)\)/g;
+            
+            const htmlText = text.replace(regex, (match, linkText, url) => {
+                let safeUrl = url.trim();
+                if (!safeUrl.match(/^(https?:\/\/|mailto:)/i)) {
+                    safeUrl = 'http://' + safeUrl;
+                }
+                return `<a href="${safeUrl}" target="_blank" rel="noopener noreferrer">${linkText}</a>`;
+            });
+
+            return { __html: htmlText };
+        };
+
+
+        function Tracker() {
             const [snags, setSnags] = useState([]);
+            
+            // New Snag State: Dynamic inputs
+            const [newSnagCategory, setNewSnagCategory] = useState(Object.keys(INITIAL_CATEGORIES)[0]);
+            const [newSnagSubcategory, setNewSnagSubcategory] = useState(INITIAL_CATEGORIES[Object.keys(INITIAL_CATEGORIES)[0]][0]);
             const [newSnagText, setNewSnagText] = useState('');
-            const [status, setStatus] = useState('Initializing Firebase...');
-            const [userId, setUserId] = useState(null);
-            const [isAuthReady, setIsAuthReady] = useState(false);
+
+            // Filter State
+            const [filterCategory, setFilterCategory] = useState('All Categories');
+            const [filterSubcategory, setFilterSubcategory] = useState('All Subcategories');
+
+            // UI/System State
             const [viewingPhoto, setViewingPhoto] = useState(null);
             const [editingSnagId, setEditingSnagId] = useState(null);
             const [editingSnagText, setEditingSnagText] = useState('');
-            const [modal, setModal] = useState(null); // { type: 'confirm', message: '', action: () => {} }
-            
-            // Firebase instances
-            const [db, setDb] = useState(null);
-            const [auth, setAuth] = useState(null);
+            const [editingSnagCategory, setEditingSnagCategory] = useState('');
+            const [editingSnagSubcategory, setEditingSnagSubcategory] = useState('');
 
-            // --- FIREBASE INITIALIZATION & DATA LISTENER ---
+            const [modal, setModal] = useState(null); 
+            const [linkModal, setLinkModal] = useState(null); 
+            const [status, setStatus] = useState('Awaiting connection...');
+            const [supabaseClient, setSupabaseClient] = useState(null);
+            
+            // Runtime lists for dynamic rooms/categories
+            const [allCategories, setAllCategories] = useState(Object.keys(INITIAL_CATEGORIES));
+            const [allSubcategories, setAllSubcategories] = useState(INITIAL_CATEGORIES);
+
+
+            // --- SUPABASE INITIALIZATION & LISTENER (Unchanged) ---
 
             useEffect(() => {
-                const initFirebase = async () => {
-                    const { initializeApp, getAuth, signInWithCustomToken, signInAnonymously, getFirestore, onAuthStateChanged } = window.firebaseDependencies;
-                    const { firebaseConfig, authToken } = window.envVars;
+                if (SUPABASE_URL.includes('PASTE_') || SUPABASE_ANON_KEY.includes('PASTE_')) {
+                    setStatus('Error: Supabase keys are missing. Please enter them in the CONFIGURATION section.');
+                    return;
+                }
+                
+                try {
+                    const client = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+                    setSupabaseClient(client);
+                    setStatus('Supabase client initialized. Connecting...');
+                } catch (error) {
+                    console.error("Supabase Initialization Error:", error);
+                    setStatus(`Initialization Error: ${error.message}`);
+                }
+            }, []);
 
-                    if (!firebaseConfig) {
-                        setStatus('Error: Firebase configuration missing.');
+            useEffect(() => {
+                if (!supabaseClient) return;
+
+                const fetchSnags = async () => {
+                    setStatus('Fetching data from cloud...');
+                    const { data, error } = await supabaseClient
+                        .from(TABLE_NAME)
+                        .select('*')
+                        .order('created_at', { ascending: false });
+
+                    if (error) {
+                        console.error("Fetch Error:", error);
+                        if (error.code === '42P01') { 
+                            setStatus(`Error: Table '${TABLE_NAME}' not found. Did you create it in Supabase?`);
+                        } else {
+                             setStatus(`Error fetching data: ${error.message}`);
+                        }
                         return;
                     }
-                    
-                    try {
-                        const app = initializeApp(firebaseConfig);
-                        const authInstance = getAuth(app);
-                        const dbInstance = getFirestore(app);
-                        
-                        setAuth(authInstance);
-                        setDb(dbInstance);
 
-                        // 1. Authenticate the user
-                        if (authToken) {
-                            await signInWithCustomToken(authInstance, authToken);
-                            setStatus('Authenticated via custom token.');
-                        } else {
-                            await signInAnonymously(authInstance);
-                            setStatus('Authenticated anonymously.');
+                    setSnags(data);
+                    setStatus(`Sync successful. ${data.length} items loaded.`);
+                    
+                    const categoriesSet = new Set(Object.keys(INITIAL_CATEGORIES));
+                    const subcategoriesMap = JSON.parse(JSON.stringify(INITIAL_CATEGORIES));
+
+                    data.forEach(snag => {
+                        const catKey = (snag.header_category || '').trim() || 'Uncategorized';
+                        categoriesSet.add(catKey);
+                        
+                        if (!subcategoriesMap[catKey]) {
+                            subcategoriesMap[catKey] = [];
                         }
 
-                        // 2. Set up Auth State Listener
-                        onAuthStateChanged(authInstance, (user) => {
-                            if (user) {
-                                setUserId(user.uid);
-                            } else {
-                                setUserId(null);
-                            }
-                            setIsAuthReady(true);
-                        });
+                        const subKey = (snag.room_name || '').trim();
+                        if (subKey && !subcategoriesMap[catKey].includes(subKey)) {
+                            subcategoriesMap[catKey].push(subKey);
+                        }
+                    });
 
-                    } catch (error) {
-                        console.error("Firebase Initialization Error:", error);
-                        setStatus(`Firebase Error: ${error.message}. Check console.`);
+                    const sortedCategories = Array.from(categoriesSet).sort();
+                    
+                    Object.keys(subcategoriesMap).forEach(key => {
+                        subcategoriesMap[key] = subcategoriesMap[key].sort();
+                    });
+
+                    setAllCategories(sortedCategories);
+                    setAllSubcategories(subcategoriesMap);
+
+                    if (!categoriesSet.has(newSnagCategory)) {
+                        setNewSnagCategory(sortedCategories[0] || '');
                     }
                 };
-
-                initFirebase();
-            }, []); // Run only once on mount
-
-            // 3. Set up Real-time Firestore Listener
-            useEffect(() => {
-                if (!db || !isAuthReady || !userId) return;
-
-                setStatus(`Loading data for user ${userId.substring(0, 8)}...`);
                 
-                // Firestore path: /artifacts/{appId}/users/{userId}/snags
-                const { collection, query, onSnapshot } = window.firebaseDependencies;
-                const { appId } = window.envVars;
+                fetchSnags();
 
-                const path = `artifacts/${appId}/users/${userId}/${COLLECTION_NAME}`;
-                const q = query(collection(db, path));
+                const subscription = supabaseClient
+                    .channel('public:snags_updates')
+                    .on('postgres_changes', { event: '*', schema: 'public', table: TABLE_NAME }, payload => {
+                        fetchSnags();
+                    })
+                    .subscribe();
 
-                const unsubscribe = onSnapshot(q, (snapshot) => {
-                    const loadedSnags = snapshot.docs.map(doc => ({
-                        // The Firestore ID is the document ID
-                        firestoreId: doc.id,
-                        // Parse other data
-                        ...doc.data()
-                    }));
-                    
-                    if (loadedSnags.length === 0) {
-                         // If no data exists, populate with initial snags
-                        if (initialSnags.length > 0) {
-                            initialSnags.forEach(async (snag) => {
-                                // Add initial snags to the database
-                                const newDocRef = collection(db, path);
-                                await addDoc(newDocRef, {
-                                    ...snag,
-                                    createdAt: new Date().toISOString(),
-                                });
-                            });
-                            // Set initial state locally temporarily until onSnapshot fires again
-                            setSnags(initialSnags.map(s => ({...s, firestoreId: s.id})));
-                            setStatus('Initialized new tracker for user.');
-                        } else {
-                            setSnags([]);
-                            setStatus('Tracker synced. Ready to add snags.');
-                        }
-                    } else {
-                        // Sort loaded snags by their original ID or creation time for stability
-                        loadedSnags.sort((a, b) => (a.createdAt || 0) > (b.createdAt || 0) ? 1 : -1);
-                        setSnags(loadedSnags);
-                        setStatus(`Tracker synced. ${loadedSnags.length} items loaded.`);
+                return () => {
+                    if (subscription) {
+                        supabaseClient.removeChannel(subscription);
                     }
-                }, (error) => {
-                    console.error("Firestore Snapshot Error:", error);
-                    setStatus(`Database Error: ${error.message}`);
-                });
+                };
+            }, [supabaseClient]);
 
-                // Clean up the listener on component unmount or dependency change
-                return () => unsubscribe();
-            }, [db, isAuthReady, userId]);
 
-            
-            // --- FIREBASE CRUD OPERATIONS ---
-
-            const getSnagPath = useMemo(() => {
-                if (!userId || !window.envVars.appId) return null;
-                const { appId } = window.envVars;
-                return `artifacts/${appId}/users/${userId}/${COLLECTION_NAME}`;
-            }, [userId]);
-
+            // --- SUPABASE CRUD WRAPPERS (Unchanged) ---
             const addNewSnagToDB = async (snagData) => {
-                if (!db || !getSnagPath) return;
-                try {
-                    const { collection, addDoc } = window.firebaseDependencies;
-                    await addDoc(collection(db, getSnagPath), {
+                if (!supabaseClient) return setStatus('Connection not ready.');
+                
+                const { error } = await supabaseClient
+                    .from(TABLE_NAME)
+                    .insert([{ 
                         ...snagData,
-                        createdAt: new Date().toISOString(),
-                        updatedAt: new Date().toISOString(),
-                    });
-                } catch (error) {
+                        status: 'open',
+                        created_at: new Date().toISOString(),
+                        photo_data: null, 
+                    }]);
+
+                if (error) {
                     console.error("Error adding snag:", error);
                     setStatus(`Failed to add snag: ${error.message}`);
+                } else {
+                    setNewSnagText('');
+                    setStatus('Item added. Syncing...');
                 }
             };
 
-            const updateSnagInDB = async (firestoreId, updates) => {
-                if (!db || !getSnagPath) return;
-                try {
-                    const { doc, updateDoc } = window.firebaseDependencies;
-                    const docRef = doc(db, getSnagPath, firestoreId);
-                    await updateDoc(docRef, {
+            const updateSnagInDB = async (id, updates) => {
+                if (!supabaseClient) return setStatus('Connection not ready.');
+
+                const { error } = await supabaseClient
+                    .from(TABLE_NAME)
+                    .update({ 
                         ...updates,
-                        updatedAt: new Date().toISOString(),
-                    });
-                } catch (error) {
+                        updated_at: new Date().toISOString(),
+                    })
+                    .eq('id', id);
+
+                if (error) {
                     console.error("Error updating snag:", error);
-                    setStatus(`Failed to update snag: ${error.message}`);
+                    setStatus(`Failed to update item: ${error.message}`);
+                } else {
+                    setStatus('Item updated. Syncing...');
                 }
             };
 
-            const deleteSnagFromDB = async (firestoreId) => {
-                if (!db || !getSnagPath) return;
-                try {
-                    const { doc, deleteDoc } = window.firebaseDependencies;
-                    const docRef = doc(db, getSnagPath, firestoreId);
-                    await deleteDoc(docRef);
-                } catch (error) {
+            const deleteSnagFromDB = async (id) => {
+                if (!supabaseClient) return setStatus('Connection not ready.');
+
+                const { error } = await supabaseClient
+                    .from(TABLE_NAME)
+                    .delete()
+                    .eq('id', id);
+
+                if (error) {
                     console.error("Error deleting snag:", error);
-                    setStatus(`Failed to delete snag: ${error.message}`);
+                    setStatus(`Failed to delete item: ${error.message}`);
+                } else {
+                    setStatus('Item deleted. Syncing...');
                 }
             };
 
 
-            // --- UI/STATE HANDLERS ---
+            // --- UI/STATE HANDLERS (Unchanged Logic) ---
+            const injectLink = (markdownLink, target) => {
+                if (target === 'new') {
+                    setNewSnagText(prev => prev.trim() + ' ' + markdownLink + ' ');
+                } else if (target === 'edit') {
+                    setEditingSnagText(prev => prev.trim() + ' ' + markdownLink + ' ');
+                }
+                setLinkModal(null);
+            };
+
+            const handleNewCategoryChange = (e) => {
+                setNewSnagCategory(e.target.value);
+            }
+            
+            const handleNewSubcategoryChange = (e) => {
+                setNewSnagSubcategory(e.target.value);
+            }
 
             const addSnag = (e) => {
                 e.preventDefault();
-                if (!newSnagText.trim() || !userId) return;
+                if (!newSnagText.trim()) return;
 
                 const newSnagData = {
+                    header_category: newSnagCategory.trim() || 'Uncategorized',
+                    room_name: newSnagSubcategory.trim() || 'N/A',
                     text: newSnagText.trim(),
-                    status: 'open',
-                    photo: null,
-                    link: null
                 };
                 addNewSnagToDB(newSnagData);
-                setNewSnagText('');
             };
 
             const toggleSnagStatus = (snag) => {
-                const newStatus = snag.status === 'open' ? 'closed' : 'open';
-                updateSnagInDB(snag.firestoreId, { status: newStatus });
+                const newStatus = snag.status === 'closed' ? 'open' : 'closed';
+                updateSnagInDB(snag.id, { status: newStatus });
             };
 
             const handleDeleteRequest = (snag) => {
                 setModal({
                     type: 'confirm',
-                    message: `Are you sure you want to delete the snag: "${snag.text}"?`,
-                    action: () => deleteSnagFromDB(snag.firestoreId)
+                    message: `Are you sure you want to delete: "${snag.header_category} > ${snag.room_name} > ${snag.text.split('[')[0].trim()}..."? This action cannot be undone.`,
+                    action: () => deleteSnagFromDB(snag.id)
                 });
             };
             
             const startEdit = (snag) => {
-                setEditingSnagId(snag.firestoreId);
+                setEditingSnagId(snag.id);
                 setEditingSnagText(snag.text);
+                setEditingSnagCategory(snag.header_category);
+                setEditingSnagSubcategory(snag.room_name);
             }
             
-            const saveEdit = (firestoreId) => {
-                updateSnagInDB(firestoreId, { text: editingSnagText.trim() });
+            const saveEdit = (id) => {
+                updateSnagInDB(id, { 
+                    text: editingSnagText.trim(), 
+                    header_category: editingSnagCategory.trim() || 'Uncategorized',
+                    room_name: editingSnagSubcategory.trim() || 'N/A',
+                });
                 setEditingSnagId(null);
                 setEditingSnagText('');
             }
 
-            const handlePhotoUpload = (event, snag) => {
+            const handlePhotoUpload = (event, id) => {
                 const file = event.target.files[0];
                 if (!file) return;
 
                 const reader = new FileReader();
                 reader.onload = (e) => {
-                    // Update photo property in Firestore
-                    updateSnagInDB(snag.firestoreId, { photo: e.target.result });
+                    updateSnagInDB(id, { photo_data: e.target.result });
                 };
                 reader.readAsDataURL(file);
             };
+
+
+            // --- FILTERING AND GROUPING (Unchanged Logic) ---
             
-            const handleLinkUpdate = (snag, link) => {
-                 updateSnagInDB(snag.firestoreId, { link: link.trim() });
-            };
+            const filteredSnags = useMemo(() => {
+                let filtered = snags;
+
+                if (filterCategory !== 'All Categories') {
+                    filtered = filtered.filter(snag => (snag.header_category || 'Uncategorized') === filterCategory);
+                }
+                
+                if (filterSubcategory !== 'All Subcategories' && filterSubcategory !== 'N/A') {
+                    filtered = filtered.filter(snag => snag.room_name === filterSubcategory);
+                }
+
+                const grouped = filtered.reduce((acc, snag) => {
+                    const catKey = snag.header_category || 'Uncategorized';
+                    const subKey = snag.room_name || 'N/A';
+
+                    if (!acc[catKey]) acc[catKey] = {};
+                    if (!acc[catKey][subKey]) acc[catKey][subKey] = [];
+                    
+                    acc[catKey][subKey].push(snag);
+                    return acc;
+                }, {});
+
+                return grouped;
+
+            }, [snags, filterCategory, filterSubcategory]);
+
+            const availableSubcategoriesForFilter = useMemo(() => {
+                if (filterCategory === 'All Categories') {
+                    const allSubs = new Set();
+                    Object.values(allSubcategories).forEach(arr => arr.forEach(sub => allSubs.add(sub)));
+                    return Array.from(allSubs).sort();
+                }
+                return allSubcategories[filterCategory] || [];
+            }, [filterCategory, allSubcategories]);
+
+
+            // --- MODAL COMPONENTS (Improved Styling) ---
 
             const CustomModal = ({ modal, closeModal }) => {
                 if (!modal) return null;
@@ -329,25 +427,25 @@
                 };
 
                 return (
-                    <div className="modal">
-                        <div className="modal-content">
-                            <div className="flex items-center space-x-3 mb-4 border-b pb-2">
+                    <div className="modal" onClick={closeModal}>
+                        <div className="modal-content transform transition-all" onClick={(e) => e.stopPropagation()}>
+                            <div className="flex items-center space-x-3 mb-4 border-b pb-3 border-slate-100">
                                 <AlertIcon className="w-6 h-6 text-red-500"/>
-                                <h3 className="text-xl font-bold">Confirmation</h3>
+                                <h3 className="text-xl font-bold text-slate-800">Confirm Deletion</h3>
                             </div>
-                            <p className="text-slate-700 mb-6">{modal.message}</p>
+                            <p className="text-slate-600 mb-8">{modal.message}</p>
                             <div className="flex justify-end space-x-3">
                                 <button
                                     onClick={closeModal}
-                                    className="px-4 py-2 bg-slate-200 text-slate-700 rounded-lg hover:bg-slate-300 transition"
+                                    className="px-6 py-2.5 bg-slate-100 text-slate-700 font-semibold rounded-xl hover:bg-slate-200 transition shadow-sm"
                                 >
                                     Cancel
                                 </button>
                                 <button
                                     onClick={handleAction}
-                                    className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition"
+                                    className="px-6 py-2.5 bg-red-600 text-white font-semibold rounded-xl hover:bg-red-700 transition shadow-md"
                                 >
-                                    Confirm Delete
+                                    Delete Item
                                 </button>
                             </div>
                         </div>
@@ -355,76 +453,173 @@
                 );
             };
 
+            const LinkInputModal = ({ linkModal, closeModal, onLinkSubmit }) => {
+                if (!linkModal) return null;
+                const [linkText, setLinkText] = useState('');
+                const [linkUrl, setLinkUrl] = useState('');
+
+                const handleSubmit = (e) => {
+                    e.preventDefault();
+                    if (linkText.trim() && linkUrl.trim()) {
+                        const markdownLink = `[${linkText.trim()}](${linkUrl.trim()})`;
+                        onLinkSubmit(markdownLink, linkModal.target);
+                        closeModal();
+                    }
+                };
+
+                return (
+                    <div className="modal" onClick={closeModal}>
+                        <form className="modal-content" onClick={(e) => e.stopPropagation()} onSubmit={handleSubmit}>
+                            <div className="flex items-center space-x-3 mb-4 border-b pb-3 border-slate-100">
+                                <LinkIcon className="w-6 h-6 text-primary"/>
+                                <h3 className="text-xl font-bold text-slate-800">Embed Link</h3>
+                            </div>
+                            
+                            <label className="block text-sm font-medium text-slate-700 mb-1">Link Text</label>
+                            <input
+                                type="text"
+                                placeholder="e.g., replacement sink on Amazon"
+                                value={linkText}
+                                onChange={(e) => setLinkText(e.target.value)}
+                                className="w-full p-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary mb-4"
+                                required
+                            />
+
+                            <label className="block text-sm font-medium text-slate-700 mb-1">Full URL</label>
+                            <input
+                                type="url"
+                                placeholder="e.g., https://www.amazon.com/sink-model-xyz"
+                                value={linkUrl}
+                                onChange={(e) => setLinkUrl(e.target.value)}
+                                className="w-full p-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary mb-6"
+                                required
+                            />
+
+                            <div className="flex justify-end space-x-3">
+                                <button
+                                    type="button"
+                                    onClick={closeModal}
+                                    className="px-6 py-2.5 bg-slate-100 text-slate-700 font-semibold rounded-xl hover:bg-slate-200 transition shadow-sm"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="submit"
+                                    className="px-6 py-2.5 bg-primary text-white font-semibold rounded-xl hover:bg-blue-900 transition shadow-md disabled:opacity-50"
+                                    disabled={!linkText.trim() || !linkUrl.trim()}
+                                >
+                                    Insert Link
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                );
+            };
+
+
+            // --- SNAG ITEM COMPONENT (Major UI Improvement) ---
 
             const SnagItem = ({ snag }) => {
-                const isEditing = editingSnagId === snag.firestoreId;
+                const isEditing = editingSnagId === snag.id;
 
-                const statusClasses = snag.status === 'closed'
-                    ? 'bg-green-100 border-green-400 text-green-800 line-through'
-                    : 'bg-white border-yellow-400 text-slate-800';
+                const statusColor = snag.status === 'closed' ? 'border-status-closed' : 'border-status-open';
+                const buttonBg = snag.status === 'closed' ? 'bg-status-closed hover:bg-green-600' : 'bg-status-open hover:bg-amber-600';
                 
                 return (
-                    <div className={`snag-card p-4 rounded-xl border-l-8 transition duration-300 ${statusClasses} mb-3 flex flex-col sm:flex-row items-start sm:items-center justify-between`}>
-                        <div className="flex-grow w-full sm:w-auto">
+                    <div className={`snag-card p-5 rounded-xl border-l-8 ${statusColor} bg-white transition duration-300 mb-4 flex flex-col lg:flex-row items-start lg:items-center justify-between`}>
+                        <div className="flex-grow w-full lg:w-auto">
+                            {/* Category and Subcategory Labels */}
+                            <div className="flex flex-wrap items-center gap-2 mb-2">
+                                <span className="text-xs font-bold uppercase tracking-wider text-primary bg-blue-50 px-2 py-0.5 rounded-full">
+                                    <FolderOpen className="w-3 h-3 inline mr-1 -mt-0.5" /> {snag.header_category || 'Uncategorized'}
+                                </span>
+                                <span className="text-xs font-bold uppercase tracking-wider text-slate-600 bg-slate-100 px-2 py-0.5 rounded-full">
+                                    <MapPin className="w-3 h-3 inline mr-1 -mt-0.5" /> {snag.room_name || 'N/A'}
+                                </span>
+                            </div>
+
                             {isEditing ? (
-                                <input
-                                    type="text"
-                                    value={editingSnagText}
-                                    onChange={(e) => setEditingSnagText(e.target.value)}
-                                    className="w-full text-lg font-medium p-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                />
+                                <>
+                                    <textarea
+                                        rows="3"
+                                        value={editingSnagText}
+                                        onChange={(e) => setEditingSnagText(e.target.value)}
+                                        className="w-full text-lg font-medium p-3 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary mb-3"
+                                        placeholder="Enter snag detail..."
+                                    />
+                                    <div className="flex flex-wrap space-x-2 mb-3">
+                                        <input
+                                            type="text"
+                                            list="edit-category-list"
+                                            value={editingSnagCategory}
+                                            onChange={(e) => setEditingSnagCategory(e.target.value)}
+                                            placeholder="Edit Category"
+                                            className="text-sm p-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-primary w-full sm:w-40 mb-2 sm:mb-0"
+                                        />
+                                        <datalist id="edit-category-list">
+                                            {allCategories.map(cat => (<option key={cat} value={cat} />))}
+                                        </datalist>
+
+                                        <input
+                                            type="text"
+                                            list="edit-subcategory-list"
+                                            value={editingSnagSubcategory}
+                                            onChange={(e) => setEditingSnagSubcategory(e.target.value)}
+                                            placeholder="Edit Subcategory"
+                                            className="text-sm p-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-primary w-full sm:w-40 mb-2 sm:mb-0"
+                                        />
+                                        <datalist id="edit-subcategory-list">
+                                            {(allSubcategories[editingSnagCategory] || []).map(sub => (<option key={sub} value={sub} />))}
+                                        </datalist>
+                                        
+                                        <button
+                                            type="button"
+                                            onClick={() => setLinkModal({ target: 'edit', currentText: editingSnagText })}
+                                            className="p-2 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-lg transition text-sm flex items-center shadow-sm"
+                                            title="Add a clickable link to the snag text"
+                                        >
+                                            <LinkIcon className="w-4 h-4 mr-1" /> Link
+                                        </button>
+                                    </div>
+                                </>
                             ) : (
-                                <p className="text-lg font-medium break-words pr-4">{snag.text}</p>
+                                <p 
+                                    className={`snag-description text-lg font-medium break-words pr-4 ${snag.status === 'closed' ? 'text-slate-500 line-through' : 'text-slate-800'}`}
+                                    dangerouslySetInnerHTML={renderMarkdownLinks(snag.text)}
+                                />
                             )}
 
-                            <div className="flex flex-wrap items-center mt-2 space-x-2">
-                                {snag.photo && (
+                            <div className="flex flex-wrap items-center mt-3 space-x-3">
+                                {snag.photo_data && (
                                     <button 
-                                        onClick={() => setViewingPhoto({ data: snag.photo, text: snag.text })}
-                                        className="text-blue-600 hover:text-blue-800 text-sm flex items-center p-1 rounded-full bg-blue-50 hover:bg-blue-100 transition"
+                                        onClick={() => setViewingPhoto({ data: snag.photo_data, text: snag.text })}
+                                        className="text-primary hover:text-blue-900 text-sm font-semibold flex items-center p-1 rounded-full bg-blue-50 hover:bg-blue-100 transition"
                                     >
                                         <Camera className="w-4 h-4 mr-1" /> View Photo
                                     </button>
                                 )}
-                                {snag.link && (
-                                    <a 
-                                        href={snag.link} 
-                                        target="_blank" 
-                                        rel="noopener noreferrer"
-                                        className="text-indigo-600 hover:text-indigo-800 text-sm flex items-center p-1 rounded-full bg-indigo-50 hover:bg-indigo-100 transition"
-                                    >
-                                        <LinkIcon className="w-4 h-4 mr-1" /> View Link
-                                    </a>
-                                )}
+                                
                                 {!isEditing && (
-                                    <label htmlFor={`photo-upload-${snag.firestoreId}`} className="cursor-pointer text-slate-600 hover:text-slate-800 text-sm flex items-center p-1 rounded-full bg-slate-100 hover:bg-slate-200 transition">
-                                        <Upload className="w-4 h-4 mr-1" /> Add Photo
+                                    <label htmlFor={`photo-upload-${snag.id}`} className="cursor-pointer text-slate-600 hover:text-slate-800 text-sm font-semibold flex items-center p-1 rounded-full bg-slate-100 hover:bg-slate-200 transition">
+                                        <Camera className="w-4 h-4 mr-1" /> Add Photo
                                         <input 
-                                            id={`photo-upload-${snag.firestoreId}`} 
+                                            id={`photo-upload-${snag.id}`} 
                                             type="file" 
                                             accept="image/*" 
                                             className="hidden" 
-                                            onChange={(e) => handlePhotoUpload(e, snag)}
+                                            onChange={(e) => handlePhotoUpload(e, snag.id)}
                                         />
                                     </label>
-                                )}
-                                {isEditing && (
-                                    <input
-                                        type="url"
-                                        placeholder="Add Link URL"
-                                        defaultValue={snag.link || ''}
-                                        onBlur={(e) => handleLinkUpdate(snag, e.target.value)}
-                                        className="text-sm p-1 border border-slate-300 rounded-lg w-32"
-                                    />
                                 )}
                             </div>
                         </div>
                         
-                        <div className="flex items-center space-x-2 mt-3 sm:mt-0">
+                        {/* Action Buttons */}
+                        <div className="flex items-center space-x-2 mt-4 lg:mt-0 lg:ml-4 flex-shrink-0">
                             {isEditing ? (
                                 <button 
-                                    onClick={() => saveEdit(snag.firestoreId)}
-                                    className="p-2 bg-blue-500 hover:bg-blue-600 text-white rounded-full transition shadow-md"
+                                    onClick={() => saveEdit(snag.id)}
+                                    className="p-3 bg-primary hover:bg-blue-900 text-white rounded-full transition shadow-md"
                                     title="Save Edit"
                                 >
                                     <Check className="w-5 h-5" />
@@ -432,7 +627,7 @@
                             ) : (
                                 <button 
                                     onClick={() => startEdit(snag)}
-                                    className="p-2 bg-yellow-500 hover:bg-yellow-600 text-white rounded-full transition shadow-md"
+                                    className="p-3 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-full transition shadow-sm"
                                     title="Edit Snag"
                                 >
                                     <Edit className="w-5 h-5" />
@@ -441,14 +636,14 @@
                             
                             <button 
                                 onClick={() => toggleSnagStatus(snag)}
-                                className={`p-2 rounded-full transition shadow-md ${snag.status === 'open' ? 'bg-green-500 hover:bg-green-600 text-white' : 'bg-slate-300 hover:bg-slate-400 text-slate-700'}`}
+                                className={`p-3 rounded-full transition shadow-md ${buttonBg} text-white`}
                                 title={snag.status === 'open' ? 'Mark Complete' : 'Mark Open'}
                             >
                                 <Check className="w-5 h-5" />
                             </button>
                             <button 
                                 onClick={() => handleDeleteRequest(snag)}
-                                className="p-2 bg-red-500 hover:bg-red-600 text-white rounded-full transition shadow-md"
+                                className="p-3 bg-red-600 hover:bg-red-700 text-white rounded-full transition shadow-md"
                                 title="Delete Snag"
                             >
                                 <Trash className="w-5 h-5" />
@@ -457,105 +652,220 @@
                     </div>
                 );
             };
-
-            const openSnags = snags.filter(snag => snag.status === 'open');
-            const closedSnags = snags.filter(snag => snag.status === 'closed');
-            const connectionStatus = userId ? `Connected | User ID: ${userId.substring(0, 8)}...` : 'Not connected';
             
+            // Render Grouped Snags
+            const renderCategoryGroup = (category) => {
+                const subcategoryGroup = filteredSnags[category];
+                if (!subcategoryGroup) return null;
+
+                const subcategoryKeys = Object.keys(subcategoryGroup).sort();
+
+                return (
+                    <div key={category} className="mb-10">
+                        <div className="category-header p-4 rounded-xl mb-6 shadow-sm border-l-4 border-slate-500">
+                            <h2 className="text-2xl font-extrabold text-slate-800 flex items-center">
+                                <FolderOpen className="w-6 h-6 mr-3 text-slate-500" /> {category}
+                            </h2>
+                        </div>
+
+                        {subcategoryKeys.map(subCategory => {
+                            const openSnags = subcategoryGroup[subCategory].filter(s => s.status === 'open');
+                            const closedSnags = subcategoryGroup[subCategory].filter(s => s.status === 'closed');
+
+                            return (
+                                <div key={subCategory} className="pl-6 border-l-2 border-slate-200 mb-8">
+                                    <h3 className="text-xl font-semibold text-slate-700 mb-5 mt-4 flex items-center">
+                                        <MapPin className="w-5 h-5 mr-2 text-primary" /> {subCategory} 
+                                        <span className="ml-3 text-sm font-bold bg-primary text-white px-3 py-1 rounded-full shadow-sm">
+                                            {openSnags.length} Open
+                                        </span>
+                                    </h3>
+                                    
+                                    {/* Open Snags */}
+                                    {openSnags.map(snag => <SnagItem key={snag.id} snag={snag} />)}
+
+                                    {/* Closed Snags */}
+                                    {closedSnags.length > 0 && (
+                                        <div className="mt-8 pt-6 border-t border-dashed border-slate-300">
+                                            <h4 className="text-lg font-semibold text-accent mb-3 flex items-center">
+                                                <Check className="w-5 h-5 mr-2" /> Completed ({closedSnags.length})
+                                            </h4>
+                                            {closedSnags.map(snag => <SnagItem key={snag.id} snag={snag} />)}
+                                        </div>
+                                    )}
+                                </div>
+                            );
+                        })}
+                    </div>
+                );
+            };
+
+            const allCategoryKeys = Object.keys(filteredSnags).sort();
+
             return (
-                <div className="min-h-screen bg-slate-50 p-4 sm:p-8">
-                    {/* Confirmation Modal */}
+                <div className="min-h-screen bg-gray-100">
+                    {/* Modals */}
                     <CustomModal modal={modal} closeModal={() => setModal(null)} />
-
-                    <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 pb-4 border-b border-slate-200">
-                        <h1 className="text-3xl font-bold text-slate-800">Lodge Build Tracker</h1>
-                        <div className="flex items-center space-x-3 mt-3 sm:mt-0">
-                            <span className={`text-sm font-medium p-2 rounded-full ${userId ? 'bg-blue-100 text-blue-600' : 'bg-red-100 text-red-600'}`}>
-                                ☁️ {connectionStatus}
-                            </span>
-                        </div>
-                    </header>
-                    
-                    <p className="mb-4 text-sm text-center text-slate-600 p-3 bg-slate-100 rounded-lg">
-                        **Status:** {status}
-                    </p>
-
-                    <main className="max-w-4xl mx-auto">
-                        
-                        {/* Add New Snag Form */}
-                        <form onSubmit={addSnag} className="mb-8 p-6 bg-white rounded-xl shadow-lg">
-                            <h2 className="text-xl font-semibold text-slate-700 mb-4 flex items-center"><Plus className="w-5 h-5 mr-2"/> Add New Snag</h2>
-                            <div className="flex flex-col sm:flex-row gap-3">
-                                <input
-                                    type="text"
-                                    placeholder="Enter a new snag item (e.g., 'Touch up paint in bedroom 2')"
-                                    value={newSnagText}
-                                    onChange={(e) => setNewSnagText(e.target.value)}
-                                    className="flex-grow p-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                    required
-                                    disabled={!isAuthReady}
-                                />
-                                <button 
-                                    type="submit"
-                                    className="px-6 py-3 bg-green-500 hover:bg-green-600 text-white font-bold rounded-xl transition shadow-md"
-                                    disabled={!isAuthReady || !newSnagText.trim()}
-                                >
-                                    Add Snag
-                                </button>
-                            </div>
-                        </form>
-
-                        {/* Snag Lists */}
-                        <div className="grid md:grid-cols-2 gap-6">
-                            {/* Open Snags */}
-                            <div>
-                                <h2 className="text-2xl font-bold text-yellow-600 mb-4 p-2 rounded-lg bg-yellow-50">🚧 Open Snags ({openSnags.length})</h2>
-                                {!isAuthReady && <p className="text-slate-500 p-4 bg-white rounded-xl shadow">Awaiting secure connection...</p>}
-                                {isAuthReady && openSnags.length === 0 && (
-                                    <p className="text-slate-500 p-4 bg-white rounded-xl shadow">All clear! No open snags.</p>
-                                )}
-                                {isAuthReady && openSnags.map(snag => <SnagItem key={snag.firestoreId} snag={snag} />)}
-                            </div>
-
-                            {/* Closed Snags */}
-                            <div>
-                                <h2 className="text-2xl font-bold text-green-600 mb-4 p-2 rounded-lg bg-green-50">✅ Closed Snags ({closedSnags.length})</h2>
-                                {!isAuthReady && <p className="text-slate-500 p-4 bg-white rounded-xl shadow">Awaiting secure connection...</p>}
-                                {isAuthReady && closedSnags.length === 0 && (
-                                    <p className="text-slate-500 p-4 bg-white rounded-xl shadow">No completed snags yet.</p>
-                                )}
-                                {isAuthReady && closedSnags.map(snag => <SnagItem key={snag.firestoreId} snag={snag} />)}
-                            </div>
-                        </div>
-                    </main>
+                    <LinkInputModal linkModal={linkModal} closeModal={() => setLinkModal(null)} onLinkSubmit={injectLink} />
 
                     {/* Photo Viewer Modal */}
                     {viewingPhoto && (
-                        <div className="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50 p-4" onClick={() => setViewingPhoto(null)}>
+                        <div className="fixed inset-0 bg-black bg-opacity-90 flex items-center justify-center z-50 p-4" onClick={() => setViewingPhoto(null)}>
                             <div className="relative max-w-4xl max-h-full">
-                                <button onClick={(e) => { e.stopPropagation(); setViewingPhoto(null); }} className="absolute -top-10 right-0 p-3 bg-white text-slate-800 rounded-full hover:bg-slate-100 transition shadow-lg">
-                                    <X size={24} />
+                                <button onClick={() => setViewingPhoto(null)} className="absolute -top-10 right-0 p-3 bg-white text-slate-800 rounded-full hover:bg-slate-100 transition shadow-lg">
+                                    <X className="w-6 h-6" />
                                 </button>
-                                <img 
-                                    src={viewingPhoto.data} 
-                                    alt={viewingPhoto.text} 
-                                    className="max-w-full max-h-[90vh] object-contain rounded-lg shadow-2xl" 
-                                    onClick={(e) => e.stopPropagation()} // Prevent closing when clicking the image
-                                />
-                                <p className="text-white text-center mt-2 font-medium">{viewingPhoto.text}</p>
+                                <img src={viewingPhoto.data} alt={`Snag photo: ${viewingPhoto.text.substring(0, 30)}...`} className="max-w-full max-h-[90vh] object-contain rounded-lg shadow-xl" />
+                                <div className="mt-3 px-3 py-1 bg-black bg-opacity-50 text-white text-sm text-center rounded-lg max-w-full overflow-hidden text-ellipsis whitespace-nowrap">
+                                    {viewingPhoto.text}
+                                </div>
                             </div>
                         </div>
                     )}
+
+                    {/* Header */}
+                    <header className="bg-white shadow-md sticky top-0 z-10">
+                        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
+                            <h1 className="text-3xl font-extrabold text-slate-800">🛠️ Project Snag Tracker</h1>
+                            <span className="text-sm text-slate-500 hidden sm:block">Cloud Version {APP_VERSION}</span>
+                        </div>
+                    </header>
                     
-                    <footer className="mt-12 text-center text-sm text-slate-500 border-t pt-4 max-w-4xl mx-auto">
-                        Lodge Tracker v{APP_VERSION} | Data saved securely with Firestore
-                    </footer>
+                    <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 pb-12 grid grid-cols-1 lg:grid-cols-3 gap-8">
+
+                        {/* Sidebar / Controls Column (Sticky on Desktop) */}
+                        <div className="lg:col-span-1 space-y-8">
+                            
+                            {/* Status and Filters Card */}
+                            <div className="sticky top-20 p-6 bg-white rounded-xl shadow-lg border-t-4 border-primary">
+                                <h2 className="text-xl font-bold text-primary mb-4 flex items-center"><Database className="w-5 h-5 mr-2"/> Cloud Status</h2>
+                                <p className={`text-sm font-medium p-3 rounded-xl mb-6 ${supabaseClient ? 'bg-blue-50 text-primary' : 'bg-red-50 text-red-600'}`}>
+                                    {status}
+                                </p>
+
+                                <h3 className="text-lg font-bold text-slate-700 mb-4 flex items-center border-t pt-4"><Filter className="w-5 h-5 mr-2"/> Filter View</h3>
+                                
+                                <label className="block text-xs font-medium text-slate-500 mb-1">Filter by Category</label>
+                                <select
+                                    value={filterCategory}
+                                    onChange={(e) => {
+                                        setFilterCategory(e.target.value);
+                                        setFilterSubcategory('All Subcategories');
+                                    }}
+                                    className="w-full p-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary bg-white mb-4 transition"
+                                >
+                                    <option value="All Categories">All Categories ({snags.length})</option>
+                                    {allCategories.map(cat => (
+                                        <option key={cat} value={cat}>
+                                            {cat} ({snags.filter(s => (s.header_category || 'Uncategorized') === cat).length})
+                                        </option>
+                                    ))}
+                                </select>
+
+                                <label className="block text-xs font-medium text-slate-500 mb-1">Filter by Sub-Category</label>
+                                <select
+                                    value={filterSubcategory}
+                                    onChange={(e) => setFilterSubcategory(e.target.value)}
+                                    className="w-full p-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary bg-white transition"
+                                    disabled={filterCategory === 'All Categories'}
+                                >
+                                    <option value="All Subcategories">All Subcategories</option>
+                                    {availableSubcategoriesForFilter.map(sub => (
+                                        <option key={sub} value={sub}>{sub}</option>
+                                    ))}
+                                </select>
+                            </div>
+                            
+                            {/* Add New Snag Form Card */}
+                            <form onSubmit={addSnag} className="p-6 bg-white rounded-xl shadow-lg border-t-4 border-accent">
+                                <h2 className="text-xl font-semibold text-accent mb-4 flex items-center"><Plus className="w-5 h-5 mr-2"/> Add New Item</h2>
+                                
+                                <div className="space-y-3 mb-4">
+                                    <div>
+                                        <label className="block text-xs font-medium text-slate-500 mb-1">Header Category</label>
+                                        <input
+                                            type="text"
+                                            list="new-category-list"
+                                            placeholder="Enter or select category"
+                                            value={newSnagCategory}
+                                            onChange={handleNewCategoryChange}
+                                            className="w-full p-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary bg-white transition"
+                                            required
+                                        />
+                                        <datalist id="new-category-list">
+                                            {allCategories.map(cat => (<option key={cat} value={cat} />))}
+                                        </datalist>
+                                    </div>
+                                    
+                                    <div>
+                                        <label className="block text-xs font-medium text-slate-500 mb-1">Sub-Category (Location)</label>
+                                        <input
+                                            type="text"
+                                            list="new-subcategory-list"
+                                            placeholder="Enter or select sub-category"
+                                            value={newSnagSubcategory}
+                                            onChange={handleNewSubcategoryChange}
+                                            className="w-full p-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary bg-white transition"
+                                            required
+                                        />
+                                        <datalist id="new-subcategory-list">
+                                            {(allSubcategories[newSnagCategory] || []).map(sub => (<option key={sub} value={sub} />))}
+                                        </datalist>
+                                    </div>
+                                </div>
+                                
+                                <div className="mb-4">
+                                    <label className="block text-xs font-medium text-slate-500 mb-1">Snag Details (Markdown Links Supported)</label>
+                                    <textarea
+                                        rows="3"
+                                        placeholder="E.g., Missing trim on the west window of the [Master Bedroom](http://example.com/photo-1)"
+                                        value={newSnagText}
+                                        onChange={(e) => setNewSnagText(e.target.value)}
+                                        className="w-full p-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary transition"
+                                        required
+                                    />
+                                </div>
+
+                                <div className="flex space-x-3 mb-4">
+                                    <button
+                                        type="button"
+                                        onClick={() => setLinkModal({ target: 'new' })}
+                                        className="w-1/2 px-4 py-3 bg-blue-500 hover:bg-blue-600 text-white font-semibold rounded-xl transition shadow-md flex items-center justify-center text-sm"
+                                        title="Add a clickable link to the snag text"
+                                    >
+                                        <LinkIcon className="w-4 h-4 mr-2" /> Add Link
+                                    </button>
+                                    <button 
+                                        type="submit"
+                                        className="w-1/2 px-4 py-3 bg-accent hover:bg-green-600 text-white font-bold rounded-xl transition shadow-md disabled:bg-green-300"
+                                        disabled={!newSnagText.trim() || !supabaseClient}
+                                    >
+                                        Submit Item
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+
+                        {/* Main Tracker List Column */}
+                        <div className="lg:col-span-2">
+                            {/* Grouped Snag Lists */}
+                            <div className="space-y-10">
+                                {allCategoryKeys.length === 0 && (
+                                    <div className="text-slate-500 p-6 bg-white rounded-xl shadow-lg text-center">
+                                        <AlertIcon className="w-8 h-8 mx-auto mb-3 text-status-open" />
+                                        <p className="font-semibold">No items found.</p>
+                                        <p className="text-sm">Try adding a new item using the form on the left, or check your filter settings.</p>
+                                    </div>
+                                )}
+                                {allCategoryKeys.map(renderCategoryGroup)}
+                            </div>
+                        </div>
+                    </main>
                 </div>
             );
         }
-
-        // Standard React initialization
-        ReactDOM.render(<LodgeTracker />, document.getElementById('root'));
+        
+        ReactDOM.render(<Tracker />, document.getElementById('root'));
     </script>
 </body>
 </html>
