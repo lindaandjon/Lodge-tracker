@@ -75,10 +75,10 @@
         .panel.hidden-right { transform: translateX(100%); z-index: 5; }
         .panel.active-panel { transform: translateX(0); z-index: 15; }
 
-        /* Desktop (lg breakpoint) 3-Column Layout FIX */
+        /* Desktop (lg breakpoint) 3-Column Layout */
         @media (min-width: 1024px) {
             .main-content {
-                /* Define 3 columns explicitly and ensure it uses grid */
+                /* Define 3 columns explicitly */
                 display: grid; 
                 grid-template-columns: minmax(200px, 1.5fr) minmax(250px, 2fr) minmax(350px, 4fr);
             }
@@ -89,8 +89,8 @@
                 border-right: 1px solid #E2E8F0; /* slate-200 */
                 /* Reset mobile transforms */
                 transform: none !important;
-                width: auto; /* Reset explicit width from mobile */
-                height: auto; /* Reset explicit height from mobile */
+                width: auto; 
+                height: auto; 
             }
             .items-panel {
                  border-right: none; /* Last panel shouldn't have a right border */
@@ -107,17 +107,21 @@
             transition: all 0.2s ease-in-out;
             cursor: default;
         }
+        
+        /* FIX for Mobile Keyboard (allowing content to scroll when keyboard is active) */
         .modal {
             position: fixed;
             top: 0;
             left: 0;
             width: 100%;
-            height: 100%;
+            height: 100%; 
             background-color: rgba(15, 23, 42, 0.8);
             display: flex;
             justify-content: center;
-            align-items: center;
+            align-items: center; 
             z-index: 1000;
+            overflow-y: auto; /* ALLOW SCROLLING */
+            padding: 20px 10px; /* Add margin/padding for scrolling clearance */
         }
         .modal-content {
             background-color: white;
@@ -126,6 +130,7 @@
             max-width: 90%;
             width: 450px;
             box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+            margin: auto; /* Ensures centering and respects the wrapper's padding */
         }
         .snag-description a {
             color: #2563EB; 
@@ -142,7 +147,7 @@
         const { useState, useEffect, useMemo, useCallback } = React;
         
         // --- CONFIGURATION ---
-        const APP_VERSION = '12.4 (Desktop Layout Fixed)'; // Updated version
+        const APP_VERSION = '12.5 (Stability Fixes)'; // Updated version
         const TABLE_NAME = 'snags';
         const CATEGORY_STORAGE_KEY = 'snag_projects_v11_3'; // Old localStorage key (for migration only)
         
@@ -213,6 +218,10 @@
                     .upsert({ id: STRUCTURE_ROW_ID, structure_map: map }, { onConflict: 'id' });
 
                 if (error) {
+                    // This error indicates the table is missing.
+                    if (error.code === 'PGRST205') {
+                        setStatus(`CRITICAL ERROR: The '${STRUCTURE_TABLE}' table is missing. Please create it in your Supabase DB. (Check console for SQL).`);
+                    }
                     console.error("Error saving structure to DB:", error);
                     return false;
                 }
@@ -237,11 +246,9 @@
                 .neq('id', '0'); 
 
             if (error) {
-                console.error("Error clearing all snags:", error);
-                // Set status here, but the fetchSnags will overwrite it if successful
-            } else {
-                // Status is set after fetchSnags completes to confirm data is empty
-            }
+                throw new Error(error.message); // Throw to be caught by the action handler
+            } 
+            // Do not fetchSnags here, let the caller handle it for correct status flow
         };
 
 
@@ -343,6 +350,7 @@
                     }
 
                     // Upload the final chosen structure (local data or template) to the DB for the first time
+                    // NOTE: saveStructureToDB handles the PGRST205 error internally
                     if (await saveStructureToDB(client, structureMap)) {
                         // Clear local storage once successfully migrated/initialized to prevent future attempts
                         localStorage.removeItem(CATEGORY_STORAGE_KEY);
@@ -487,7 +495,8 @@
                     const success = await saveStructureToDB(supabaseClient, newMap);
                     
                     if (!success) {
-                        setStatus('Error: Failed to save project structure to database.');
+                        // Status is set inside saveStructureToDB if the table is missing
+                        console.error('Failed to save structure.');
                     } else {
                         setStatus('Structure saved. Syncing...');
                     }
@@ -593,13 +602,20 @@
                     return;
                 }
                 
+                // CRITICAL FIX: The action is now async and calls fetchSnags after clearing
                 setModal({
                     type: 'confirm',
                     message: `Are you sure you want to delete **ALL ${totalSnagsCount}** items from the database? This is permanent and only recommended if you have orphaned entries.`,
-                    action: (client) => {
-                        clearAllSnagsFromDB(client, totalSnagsCount)
-                            .then(() => setStatus(`Successfully cleared ALL ${totalSnagsCount} project items (snags) from the database.`))
-                            .catch(e => setStatus(`Database clear failed: ${e.message}`));
+                    action: async (client) => {
+                        try {
+                            const countBefore = totalSnagsCount;
+                            await clearAllSnagsFromDB(client, countBefore);
+                            await fetchSnags(client); // Refresh the UI and counts immediately
+                            setStatus(`Successfully cleared ${countBefore} project items (snags) from the database.`);
+                        } catch(e) {
+                            setStatus(`Database clear failed: ${e.message}`);
+                            console.error('Database clear error:', e);
+                        }
                     }
                 });
             };
@@ -846,8 +862,7 @@
                 if (!modal) return null;
 
                 const handleAction = () => {
-                    // Action handler can be sync or async and might need the client (e.g. clearAllSnagsFromDB)
-                    // The action must handle setting status/closing the modal itself, or we close it here.
+                    // Call the action function (which is expected to handle async operations like fetchSnags)
                     modal.action(supabaseClient); 
                     setModal(null); 
                 };
@@ -1135,7 +1150,6 @@
             const ProjectsPanel = ({ allProjects, selectedProject, onSelectProject, structureAction, isDesktop, activePanel, isClearDbVisible, handleClearDatabase, totalSnagsCount }) => {
                 const isActive = isDesktop || activePanel === 'projects';
 
-                // Removed lg:w-1/4
                 return (
                     <div className={`panel projects-panel ${isActive ? 'active-panel' : 'hidden-right'}`}>
                         <div className="p-4 border-b border-slate-200 bg-white">
@@ -1198,13 +1212,13 @@
                                 </button>
                             )}
 
-                            {/* Conditional Clear Database Button (NEW REQUIREMENT) */}
+                            {/* Conditional Clear Database Button */}
                             {isClearDbVisible && (
                                 <button
                                     onClick={handleClearDatabase}
                                     className="w-full px-4 py-2 bg-red-500 text-white font-semibold rounded-xl hover:bg-red-600 transition shadow-md flex items-center justify-center text-sm disabled:opacity-50"
                                     title="Warning: This clears ALL snag items from the database permanently."
-                                    disabled={!supabaseClient} // Ensure connection is ready before showing/allowing click
+                                    disabled={!supabaseClient} 
                                 >
                                     <Trash className="w-4 h-4 mr-1"/> Clear Orphaned Entries ({totalSnagsCount})
                                 </button>
@@ -1218,7 +1232,6 @@
                 const isActive = isDesktop || activePanel === 'groups';
                 const availableGroups = allGroupsMap[selectedProject] || [];
 
-                // Removed lg:w-1/4
                 return (
                     <div className={`panel groups-panel ${isActive ? 'active-panel' : 'hidden-right'}`}>
                         
@@ -1301,7 +1314,6 @@
 
                 const displayTitle = allProjects.length === 0 ? 'Orphaned Items (No Projects)' : `${selectedProject} - ${selectedGroup}`;
 
-                // Removed lg:w-1/2
                 return (
                     <div className={`panel items-panel ${isActive ? 'active-panel' : 'hidden-right'}`}>
                         {/* Header */}
