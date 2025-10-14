@@ -4,626 +4,557 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Lodge Build Tracker</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                }
+            }
+        }
+    </script>
+    <!-- React & Babel -->
     <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
     <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://accounts.google.com/gsi/client" async defer></script>
-    <script src="https://apis.google.com/js/api.js"></script>
-</head>
-<body>
-    <div id="root"></div>
-    <script type="text/babel">
-        const { useState, useEffect } = React;
-		const APP_VERSION = '2.94';
-        const CLIENT_ID = '143126622947-aua7tmjl6rf5fq4i4ggijrvvbe8ut9ck.apps.googleusercontent.com';
-        const API_KEY = 'AIzaSyA9Z_fZB1Sv5mUPmToeRQdkgUPxHu6U3q4';
-        const SCOPES = 'https://www.googleapis.com/auth/drive.file';
+    
+    <!-- Firebase Libraries (using type="module" to import functions) -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInWithCustomToken, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, query, onSnapshot, doc, setDoc, deleteDoc, updateDoc, addDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        
+        // Expose Firebase dependencies and environment variables globally for the Babel/React script
+        window.firebaseDependencies = {
+            initializeApp, getAuth, signInWithCustomToken, signInAnonymously, onAuthStateChanged,
+            getFirestore, collection, query, onSnapshot, doc, setDoc, deleteDoc, updateDoc, addDoc
+        };
+        
+        // Pass global Canvas environment variables
+        window.envVars = {
+            appId: typeof __app_id !== 'undefined' ? __app_id : 'default-app-id',
+            firebaseConfig: typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null,
+            authToken: typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null,
+        };
+    </script>
 
-        const Plus = ({ size = 24 }) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>;
-        const Trash2 = ({ size = 24 }) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>;
-        const Check = ({ size = 24 }) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="20 6 9 17 4 12"/></svg>;
-        const X = ({ size = 24 }) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>;
-        const Edit = ({ size = 24 }) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>;
-        const Download = ({ size = 24 }) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>;
-        const Camera = ({ size = 24 }) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>;
-        const Home = ({ size = 24 }) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>;
-        const Cloud = ({ size = 24 }) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/></svg>;
-        const CloudOff = ({ size = 24 }) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22.61 16.95A5 5 0 0 0 18 10h-1.26a8 8 0 0 0-7.05-6M5 5a8 8 0 0 0 4 15h9a5 5 0 0 0 1.7-.3"/><line x1="1" y1="1" x2="23" y2="23"/></svg>;
-        const Lock = ({ size = 24 }) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>;
-        const Unlock = ({ size = 24 }) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 9.9-1"/></svg>;
+    <style>
+        .snag-card {
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
+        }
+        /* Style for required modals */
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+        .modal-content {
+            background: white;
+            padding: 24px;
+            border-radius: 12px;
+            max-width: 400px;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+    </style>
+</head>
+<body class="bg-slate-50 font-sans antialiased">
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useCallback, useMemo } = React;
+        
+        // --- CONFIGURATION ---
+        const APP_VERSION = '3.0'; 
+        const COLLECTION_NAME = 'snags';
+
+        // Initial state for snags (only used if Firestore is empty)
+        const initialSnags = [
+            { id: 1, text: "Example Snag: Check plumbing under master sink.", status: 'open', photo: null, link: null },
+        ];
+
+        // Utility: Generate a simple icon/component
+        const X = (props) => <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg>;
+        const Check = (props) => <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5"/></svg>;
+        const Trash = (props) => <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6m3 0V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>;
+        const Edit = (props) => <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>;
+        const Plus = (props) => <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14M5 12h14"/></svg>;
+        const LinkIcon = (props) => <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>;
+        const Camera = (props) => <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>;
+        const Upload = (props) => <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>;
+        const AlertIcon = (props) => <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>;
+
 
         function LodgeTracker() {
-            const [rooms, setRooms] = useState([]);
             const [snags, setSnags] = useState([]);
-            const [selectedRoom, setSelectedRoom] = useState(null);
-            const [newRoomName, setNewRoomName] = useState('');
             const [newSnagText, setNewSnagText] = useState('');
-            const [showAddRoom, setShowAddRoom] = useState(false);
+            const [status, setStatus] = useState('Initializing Firebase...');
+            const [userId, setUserId] = useState(null);
+            const [isAuthReady, setIsAuthReady] = useState(false);
             const [viewingPhoto, setViewingPhoto] = useState(null);
-            const [draggedRoom, setDraggedRoom] = useState(null);
-            const [editingLink, setEditingLink] = useState(null);
-            const [linkText, setLinkText] = useState('');
-            const [linkUrl, setLinkUrl] = useState('');
-            const [editingSnag, setEditingSnag] = useState(null);
-            const [editSnagText, setEditSnagText] = useState('');
-            const [isSignedIn, setIsSignedIn] = useState(false);
-            const [isOnline, setIsOnline] = useState(navigator.onLine);
-            const [allowOfflineEdit, setAllowOfflineEdit] = useState(false);
-            const [driveFileId, setDriveFileId] = useState(null);
-            const [isSyncing, setIsSyncing] = useState(false);
-            const [lastSyncTime, setLastSyncTime] = useState(null);
-            const [gapiReady, setGapiReady] = useState(false);
-            const [accessToken, setAccessToken] = useState(null);
-            const [tokenClient, setTokenClient] = useState(null);
-            const [hasUnsyncedChanges, setHasUnsyncedChanges] = useState(false);
-            const [lastSyncedData, setLastSyncedData] = useState(null);
+            const [editingSnagId, setEditingSnagId] = useState(null);
+            const [editingSnagText, setEditingSnagText] = useState('');
+            const [modal, setModal] = useState(null); // { type: 'confirm', message: '', action: () => {} }
+            
+            // Firebase instances
+            const [db, setDb] = useState(null);
+            const [auth, setAuth] = useState(null);
+
+            // --- FIREBASE INITIALIZATION & DATA LISTENER ---
 
             useEffect(() => {
-                const initClient = () => {
-                    if (!window.gapi) { loadFromLocalStorage(); return; }
-                    window.gapi.load('client', async () => {
-                        try {
-                            setGapiReady(true);
-let savedToken = localStorage.getItem('gapi_access_token');
-if (savedToken) {
-  setAccessToken(savedToken);
-  setIsSignedIn(true);
-  loadFromDrive();
-} else {
-  loadFromLocalStorage();
-}
+                const initFirebase = async () => {
+                    const { initializeApp, getAuth, signInWithCustomToken, signInAnonymously, getFirestore, onAuthStateChanged } = window.firebaseDependencies;
+                    const { firebaseConfig, authToken } = window.envVars;
 
-
-                            // Don't pre-load Drive API - load it on demand
-                            setGapiReady(true);
-                            let savedToken = localStorage.getItem('gapi_access_token');
-                            if (savedToken) { setAccessToken(savedToken); setIsSignedIn(true); loadFromDrive(); }
-                            else { loadFromLocalStorage(); }
-                        } catch (err) { 
-                            console.error('Google API error:', err); 
-                            alert('Google Drive sync unavailable. Using local mode. Error: ' + (err.message || 'Unknown'));
-                            loadFromLocalStorage(); 
-                        }
-                    });
-                };
-                const initTokenClient = () => {
-                    if (!window.google?.accounts) return;
-                    const client = window.google.accounts.oauth2.initTokenClient({
-                        client_id: CLIENT_ID, scope: SCOPES,
-                        callback: (r) => {
-                            if (r.error) { alert('Sign-in failed: ' + r.error); return; }
-                            setAccessToken(r.access_token);
-                            localStorage.setItem('gapi_access_token', r.access_token);
-                            setIsSignedIn(true); loadFromDrive();
-                        }
-                    });
-                    setTokenClient(client);
-                };
-                let attempts = 0;
-                const check = setInterval(() => {
-                    attempts++;
-                    if (window.gapi && window.google?.accounts?.oauth2) { clearInterval(check); initClient(); initTokenClient(); }
-                    else if (attempts > 20) { clearInterval(check); loadFromLocalStorage(); }
-                }, 500);
-                return () => clearInterval(check);
-            }, []);
-
-            useEffect(() => {
-                const handleOnline = () => setIsOnline(true);
-                const handleOffline = () => setIsOnline(false);
-                window.addEventListener('online', handleOnline);
-                window.addEventListener('offline', handleOffline);
-                return () => { window.removeEventListener('online', handleOnline); window.removeEventListener('offline', handleOffline); };
-            }, []);
-
-            const loadFromLocalStorage = () => {
-                const r = localStorage.getItem('lodgeRooms');
-                const s = localStorage.getItem('lodgeSnags');
-                const f = localStorage.getItem('driveFileId');
-                if (r && s) { 
-                    const parsedRooms = JSON.parse(r);
-                    const parsedSnags = JSON.parse(s);
-                    setRooms(parsedRooms); 
-                    setSnags(parsedSnags);
-                    // Set initial sync data if not signed in
-                    if (!isSignedIn) {
-                        setLastSyncedData({ rooms: parsedRooms, snags: parsedSnags });
+                    if (!firebaseConfig) {
+                        setStatus('Error: Firebase configuration missing.');
+                        return;
                     }
-                }
-                if (f) setDriveFileId(f);
-            };
-
-            useEffect(() => { localStorage.setItem('lodgeRooms', JSON.stringify(rooms)); }, [rooms]);
-            useEffect(() => { localStorage.setItem('lodgeSnags', JSON.stringify(snags)); }, [snags]);
-
-            const handleSignIn = () => { if (!tokenClient) { alert('Not ready'); return; } tokenClient.requestAccessToken(); };
-            const handleSignOut = () => {
-                if (accessToken && window.google?.accounts?.oauth2) {
+                    
                     try {
-                        window.google.accounts.oauth2.revoke(accessToken);
-                    } catch (e) {
-                        console.log('Revoke failed (token may be expired):', e);
+                        const app = initializeApp(firebaseConfig);
+                        const authInstance = getAuth(app);
+                        const dbInstance = getFirestore(app);
+                        
+                        setAuth(authInstance);
+                        setDb(dbInstance);
+
+                        // 1. Authenticate the user
+                        if (authToken) {
+                            await signInWithCustomToken(authInstance, authToken);
+                            setStatus('Authenticated via custom token.');
+                        } else {
+                            await signInAnonymously(authInstance);
+                            setStatus('Authenticated anonymously.');
+                        }
+
+                        // 2. Set up Auth State Listener
+                        onAuthStateChanged(authInstance, (user) => {
+                            if (user) {
+                                setUserId(user.uid);
+                            } else {
+                                setUserId(null);
+                            }
+                            setIsAuthReady(true);
+                        });
+
+                    } catch (error) {
+                        console.error("Firebase Initialization Error:", error);
+                        setStatus(`Firebase Error: ${error.message}. Check console.`);
                     }
-                }
-                setAccessToken(null); 
-                localStorage.removeItem('gapi_access_token');
-                setIsSignedIn(false); 
-                setDriveFileId(null); 
-                localStorage.removeItem('driveFileId');
-                setLastSyncedData(null);
-                setHasUnsyncedChanges(false);
-            };
+                };
 
-            const findOrCreateFile = async () => {
-  try {
-    const listRes = await fetch('https://www.googleapis.com/drive/v3/files?q=name%3D%27lodge-backup.json%27+and+trashed%3Dfalse&fields=files(id,name)', {
-      headers: { Authorization: 'Bearer ' + accessToken }
-    });
-    const listData = await listRes.json();
-    if (listData.files?.length > 0) return listData.files[0].id;
+                initFirebase();
+            }, []); // Run only once on mount
 
-    const metadata = { name: 'lodge-backup.json', mimeType: 'application/json' };
-    const content = JSON.stringify({ rooms: [], snags: [], savedDate: new Date().toISOString() });
-    const form = new FormData();
-    form.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
-    form.append('file', new Blob([content], { type: 'application/json' }));
-
-    const uploadRes = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
-      method: 'POST',
-      headers: { Authorization: 'Bearer ' + accessToken },
-      body: form
-    });
-    const uploadData = await uploadRes.json();
-    return uploadData.id;
-  } catch (e) {
-    console.error('Drive file create error:', e);
-    return null;
-  }
-};
-
-
-            const loadFromDrive = async () => {
-  if (!isSignedIn || !accessToken) return;
-  setIsSyncing(true);
-  try {
-    let fid = driveFileId;
-    if (!fid) {
-      fid = await findOrCreateFile();
-      if (fid) {
-        setDriveFileId(fid);
-        localStorage.setItem('driveFileId', fid);
-      }
-    }
-    if (fid) {
-      const res = await fetch(`https://www.googleapis.com/drive/v3/files/${fid}?alt=media`, {
-        headers: { Authorization: 'Bearer ' + accessToken }
-      });
-      const data = await res.json();
-      if (data.rooms && data.snags) {
-        setRooms(data.rooms);
-        setSnags(data.snags);
-        setLastSyncTime(Date.now());
-        setLastSyncedData({ rooms: data.rooms, snags: data.snags });
-      }
-    }
-  } catch (e) {
-    console.error('Drive load error:', e);
-    alert('Failed to load from Drive: ' + (e.message || 'Unknown error'));
-  } finally {
-    setIsSyncing(false);
-  }
-};
-
-
-
-            const saveToDrive = async () => {
-  if (!isSignedIn || !isOnline || !accessToken) return;
-  setIsSyncing(true);
-  try {
-    let fid = driveFileId;
-    if (!fid) {
-      fid = await findOrCreateFile();
-      if (fid) {
-        setDriveFileId(fid);
-        localStorage.setItem('driveFileId', fid);
-      }
-    }
-    if (fid) {
-      const data = { rooms, snags, savedDate: new Date().toISOString() };
-      await fetch(`https://www.googleapis.com/upload/drive/v3/files/${fid}?uploadType=media`, {
-        method: 'PATCH',
-        headers: {
-          Authorization: 'Bearer ' + accessToken,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(data)
-      });
-      setLastSyncTime(Date.now());
-      setLastSyncedData({ rooms, snags });
-      if ('Notification' in window && Notification.permission === 'granted') {
-        new Notification('Lodge Tracker', { body: '✅ Synced to Google Drive', icon: 'icon-192.png' });
-      }
-    }
-  } catch (e) {
-    console.error('Drive save error:', e);
-    alert('Failed to save to Drive: ' + (e.message || 'Unknown error'));
-  } finally {
-    setIsSyncing(false);
-  }
-};
-
-
-
+            // 3. Set up Real-time Firestore Listener
             useEffect(() => {
-                if (isSignedIn && lastSyncedData) {
-                    const currentData = JSON.stringify({ rooms, snags });
-                    const syncedData = JSON.stringify(lastSyncedData);
-                    setHasUnsyncedChanges(currentData !== syncedData);
+                if (!db || !isAuthReady || !userId) return;
+
+                setStatus(`Loading data for user ${userId.substring(0, 8)}...`);
+                
+                // Firestore path: /artifacts/{appId}/users/{userId}/snags
+                const { collection, query, onSnapshot } = window.firebaseDependencies;
+                const { appId } = window.envVars;
+
+                const path = `artifacts/${appId}/users/${userId}/${COLLECTION_NAME}`;
+                const q = query(collection(db, path));
+
+                const unsubscribe = onSnapshot(q, (snapshot) => {
+                    const loadedSnags = snapshot.docs.map(doc => ({
+                        // The Firestore ID is the document ID
+                        firestoreId: doc.id,
+                        // Parse other data
+                        ...doc.data()
+                    }));
+                    
+                    if (loadedSnags.length === 0) {
+                         // If no data exists, populate with initial snags
+                        if (initialSnags.length > 0) {
+                            initialSnags.forEach(async (snag) => {
+                                // Add initial snags to the database
+                                const newDocRef = collection(db, path);
+                                await addDoc(newDocRef, {
+                                    ...snag,
+                                    createdAt: new Date().toISOString(),
+                                });
+                            });
+                            // Set initial state locally temporarily until onSnapshot fires again
+                            setSnags(initialSnags.map(s => ({...s, firestoreId: s.id})));
+                            setStatus('Initialized new tracker for user.');
+                        } else {
+                            setSnags([]);
+                            setStatus('Tracker synced. Ready to add snags.');
+                        }
+                    } else {
+                        // Sort loaded snags by their original ID or creation time for stability
+                        loadedSnags.sort((a, b) => (a.createdAt || 0) > (b.createdAt || 0) ? 1 : -1);
+                        setSnags(loadedSnags);
+                        setStatus(`Tracker synced. ${loadedSnags.length} items loaded.`);
+                    }
+                }, (error) => {
+                    console.error("Firestore Snapshot Error:", error);
+                    setStatus(`Database Error: ${error.message}`);
+                });
+
+                // Clean up the listener on component unmount or dependency change
+                return () => unsubscribe();
+            }, [db, isAuthReady, userId]);
+
+            
+            // --- FIREBASE CRUD OPERATIONS ---
+
+            const getSnagPath = useMemo(() => {
+                if (!userId || !window.envVars.appId) return null;
+                const { appId } = window.envVars;
+                return `artifacts/${appId}/users/${userId}/${COLLECTION_NAME}`;
+            }, [userId]);
+
+            const addNewSnagToDB = async (snagData) => {
+                if (!db || !getSnagPath) return;
+                try {
+                    const { collection, addDoc } = window.firebaseDependencies;
+                    await addDoc(collection(db, getSnagPath), {
+                        ...snagData,
+                        createdAt: new Date().toISOString(),
+                        updatedAt: new Date().toISOString(),
+                    });
+                } catch (error) {
+                    console.error("Error adding snag:", error);
+                    setStatus(`Failed to add snag: ${error.message}`);
                 }
-            }, [rooms, snags, isSignedIn, lastSyncedData]);
+            };
 
-            useEffect(() => {
-                if (isSignedIn && isOnline && gapiReady && accessToken && hasUnsyncedChanges) {
-                    const t = setTimeout(() => saveToDrive(), 2000);
-                    return () => clearTimeout(t);
+            const updateSnagInDB = async (firestoreId, updates) => {
+                if (!db || !getSnagPath) return;
+                try {
+                    const { doc, updateDoc } = window.firebaseDependencies;
+                    const docRef = doc(db, getSnagPath, firestoreId);
+                    await updateDoc(docRef, {
+                        ...updates,
+                        updatedAt: new Date().toISOString(),
+                    });
+                } catch (error) {
+                    console.error("Error updating snag:", error);
+                    setStatus(`Failed to update snag: ${error.message}`);
                 }
-            }, [hasUnsyncedChanges, isSignedIn, isOnline, gapiReady, accessToken]);
-
-            const canEdit = () => { if (!isSignedIn) return true; if (isOnline) return true; return allowOfflineEdit; };
-
-            const addRoom = () => {
-                if (!canEdit() || !newRoomName.trim()) return;
-                setRooms([...rooms, { id: Date.now(), name: newRoomName.trim(), thumbnail: null }]);
-                setNewRoomName(''); setShowAddRoom(false);
             };
 
-            const addRoomThumbnail = (rid, file) => {
-                if (!canEdit() || !file?.type.startsWith('image/')) return;
-                const r = new FileReader();
-                r.onload = (e) => setRooms(rooms.map(rm => rm.id === rid ? { ...rm, thumbnail: e.target.result } : rm));
-                r.readAsDataURL(file);
+            const deleteSnagFromDB = async (firestoreId) => {
+                if (!db || !getSnagPath) return;
+                try {
+                    const { doc, deleteDoc } = window.firebaseDependencies;
+                    const docRef = doc(db, getSnagPath, firestoreId);
+                    await deleteDoc(docRef);
+                } catch (error) {
+                    console.error("Error deleting snag:", error);
+                    setStatus(`Failed to delete snag: ${error.message}`);
+                }
             };
 
-            const deleteRoomThumbnail = (rid) => { if (!canEdit()) return; setRooms(rooms.map(r => r.id === rid ? { ...r, thumbnail: null } : r)); };
-            const deleteRoom = (rid) => {
-                if (!canEdit()) return;
-                setRooms(rooms.filter(r => r.id !== rid));
-                setSnags(snags.filter(s => s.roomId !== rid));
-                if (selectedRoom?.id === rid) setSelectedRoom(null);
-            };
 
-            const addSnag = () => {
-                if (!canEdit() || !newSnagText.trim() || !selectedRoom) return;
-                setSnags([...snags, { id: Date.now(), roomId: selectedRoom.id, text: newSnagText.trim(), completed: false, createdAt: new Date().toISOString(), photos: [], links: [] }]);
+            // --- UI/STATE HANDLERS ---
+
+            const addSnag = (e) => {
+                e.preventDefault();
+                if (!newSnagText.trim() || !userId) return;
+
+                const newSnagData = {
+                    text: newSnagText.trim(),
+                    status: 'open',
+                    photo: null,
+                    link: null
+                };
+                addNewSnagToDB(newSnagData);
                 setNewSnagText('');
             };
 
-            const toggleSnag = (sid) => { if (!canEdit()) return; setSnags(snags.map(s => s.id === sid ? { ...s, completed: !s.completed } : s)); };
-            const deleteSnag = (sid) => { if (!canEdit()) return; setSnags(snags.filter(s => s.id !== sid)); };
-            const startEditSnag = (s) => { if (!canEdit()) return; setEditingSnag(s.id); setEditSnagText(s.text); };
-            const saveEditSnag = (sid) => {
-                if (!canEdit() || !editSnagText.trim()) return;
-                setSnags(snags.map(s => s.id === sid ? { ...s, text: editSnagText.trim() } : s));
-                setEditingSnag(null); setEditSnagText('');
+            const toggleSnagStatus = (snag) => {
+                const newStatus = snag.status === 'open' ? 'closed' : 'open';
+                updateSnagInDB(snag.firestoreId, { status: newStatus });
             };
-            const cancelEditSnag = () => { setEditingSnag(null); setEditSnagText(''); };
 
-            const addPhoto = (sid, file) => {
-                if (!canEdit() || !file?.type.startsWith('image/')) return;
-                const r = new FileReader();
-                r.onload = (e) => {
-                    const p = { id: Date.now(), data: e.target.result, name: file.name, addedAt: new Date().toISOString() };
-                    setSnags(snags.map(s => s.id === sid ? { ...s, photos: [...(s.photos || []), p] } : s));
+            const handleDeleteRequest = (snag) => {
+                setModal({
+                    type: 'confirm',
+                    message: `Are you sure you want to delete the snag: "${snag.text}"?`,
+                    action: () => deleteSnagFromDB(snag.firestoreId)
+                });
+            };
+            
+            const startEdit = (snag) => {
+                setEditingSnagId(snag.firestoreId);
+                setEditingSnagText(snag.text);
+            }
+            
+            const saveEdit = (firestoreId) => {
+                updateSnagInDB(firestoreId, { text: editingSnagText.trim() });
+                setEditingSnagId(null);
+                setEditingSnagText('');
+            }
+
+            const handlePhotoUpload = (event, snag) => {
+                const file = event.target.files[0];
+                if (!file) return;
+
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    // Update photo property in Firestore
+                    updateSnagInDB(snag.firestoreId, { photo: e.target.result });
                 };
-                r.readAsDataURL(file);
+                reader.readAsDataURL(file);
+            };
+            
+            const handleLinkUpdate = (snag, link) => {
+                 updateSnagInDB(snag.firestoreId, { link: link.trim() });
             };
 
-            const deletePhoto = (sid, pid) => { if (!canEdit()) return; setSnags(snags.map(s => s.id === sid ? { ...s, photos: s.photos.filter(p => p.id !== pid) } : s)); };
+            const CustomModal = ({ modal, closeModal }) => {
+                if (!modal) return null;
 
-            const addLink = (sid) => {
-                if (!canEdit() || !linkText.trim() || !linkUrl.trim()) return;
-                let url = linkUrl.trim();
-                if (!url.startsWith('http')) url = 'https://' + url;
-                setSnags(snags.map(s => s.id === sid ? { ...s, links: [...(s.links || []), { id: Date.now(), text: linkText.trim(), url }] } : s));
-                setEditingLink(null); setLinkText(''); setLinkUrl('');
-            };
+                const handleAction = () => {
+                    modal.action();
+                    closeModal();
+                };
 
-            const deleteLink = (sid, lid) => { if (!canEdit()) return; setSnags(snags.map(s => s.id === sid ? { ...s, links: (s.links || []).filter(l => l.id !== lid) } : s)); };
-            const getRoomSnags = (rid) => snags.filter(s => s.roomId === rid);
-
-            const handleDragStart = (e, room) => { if (!canEdit()) return; setDraggedRoom(room); e.dataTransfer.effectAllowed = 'move'; };
-            const handleDragOver = (e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; };
-            const handleDrop = (e, target) => {
-                if (!canEdit()) return;
-                e.preventDefault();
-                if (!draggedRoom || draggedRoom.id === target.id) return;
-                const di = rooms.findIndex(r => r.id === draggedRoom.id);
-                const ti = rooms.findIndex(r => r.id === target.id);
-                const nr = [...rooms];
-                nr.splice(di, 1);
-                nr.splice(ti, 0, draggedRoom);
-                setRooms(nr); setDraggedRoom(null);
-            };
-            const handleDragEnd = () => setDraggedRoom(null);
-
-            const downloadBackup = () => {
-                const d = { rooms, snags, savedDate: new Date().toISOString() };
-                const b = new Blob([JSON.stringify(d, null, 2)], { type: 'application/json' });
-                const u = URL.createObjectURL(b);
-                const a = document.createElement('a');
-                a.href = u; a.download = 'lodge-backup.json';
-                document.body.appendChild(a); a.click();
-                document.body.removeChild(a); URL.revokeObjectURL(u);
-            };
-
-            const formatTime = (t) => t ? new Date(t).toLocaleTimeString() : '';
-
-            const getStatusIndicator = () => {
-                if (!isSignedIn) return <div className="flex items-center gap-2 text-sm text-slate-600"><CloudOff size={16} /><span>Local Mode</span></div>;
-                if (isSyncing) return <div className="flex items-center gap-2 text-sm text-blue-600"><Cloud size={16} className="animate-pulse" /><span>Syncing...</span></div>;
-                if (!isOnline) {
-                    if (allowOfflineEdit) return <div className="flex items-center gap-2 text-sm text-orange-600"><Unlock size={16} /><span>Offline - Editing Enabled</span></div>;
-                    return <div className="flex items-center gap-2 text-sm text-slate-600"><Lock size={16} /><span>Offline - Read Only</span></div>;
-                }
-                return <div className="flex items-center gap-2 text-sm text-green-600"><Cloud size={16} /><span>Online{lastSyncTime && ` - ${formatTime(lastSyncTime)}`}</span></div>;
-            };
-
-            return (
-                <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-4">
-                    <div className="max-w-6xl mx-auto">
-                        <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
-                            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
-                                <div>
-                                    <div className="flex items-baseline gap-3">
-                                        <h1 className="text-3xl font-bold text-slate-800">Lodge Build Tracker</h1>
-                                        <span className="text-sm text-slate-400">v{APP_VERSION}</span>
-                                    </div>
-                                    <div className="mt-2">{getStatusIndicator()}</div>
-                                </div>
-                                <div className="flex flex-wrap gap-2">
-                                    {!isSignedIn ? (
-                                        <button onClick={handleSignIn} disabled={!tokenClient} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed">
-                                            <Cloud size={18} />Sign in with Google
-                                        </button>
-                                    ) : (
-                                        <>
-                                            {hasUnsyncedChanges ? (
-                                                <button onClick={saveToDrive} disabled={isSyncing} className="flex items-center gap-2 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition disabled:opacity-50 animate-pulse">
-                                                    <Cloud size={18} /><span className="hidden sm:inline">{isSyncing ? 'Syncing...' : 'Sync Now'}</span>
-                                                </button>
-                                            ) : (
-                                                <button disabled className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg opacity-75 cursor-not-allowed">
-                                                    <Cloud size={18} /><span className="hidden sm:inline">Synced ✓</span>
-                                                </button>
-                                            )}
-                                            <button onClick={downloadBackup} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">
-                                                <Download size={18} /><span className="hidden sm:inline">Backup</span>
-                                            </button>
-                                            <button onClick={handleSignOut} className="px-4 py-2 bg-slate-600 text-white rounded-lg hover:bg-slate-700 transition">Sign Out</button>
-                                        </>
-                                    )}
-                                </div>
+                return (
+                    <div className="modal">
+                        <div className="modal-content">
+                            <div className="flex items-center space-x-3 mb-4 border-b pb-2">
+                                <AlertIcon className="w-6 h-6 text-red-500"/>
+                                <h3 className="text-xl font-bold">Confirmation</h3>
                             </div>
-                            {isSignedIn && !isOnline && !allowOfflineEdit && (
-                                <div className="bg-orange-50 border border-orange-200 rounded-lg p-3 mb-4">
-                                    <div className="flex items-center justify-between">
-                                        <span className="text-sm text-orange-800">⚠️ Offline - Viewing only. Enable editing if working solo.</span>
-                                        <button onClick={() => setAllowOfflineEdit(true)} className="flex items-center gap-1 px-3 py-1 bg-orange-600 text-white text-sm rounded hover:bg-orange-700 transition">
-                                            <Unlock size={14} />Allow Editing
-                                        </button>
-                                    </div>
-                                </div>
-                            )}
-                            {isSignedIn && !isOnline && allowOfflineEdit && (
-                                <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4">
-                                    <div className="flex items-center justify-between">
-                                        <span className="text-sm text-red-800">⚠️ Offline editing enabled - Changes sync when back online</span>
-                                        <button onClick={() => setAllowOfflineEdit(false)} className="flex items-center gap-1 px-3 py-1 bg-red-600 text-white text-sm rounded hover:bg-red-700 transition">
-                                            <Lock size={14} />Disable
-                                        </button>
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-
-                        <div className="grid md:grid-cols-3 gap-6">
-                            <div className="bg-white rounded-lg shadow-lg p-6">
-                                <div className="flex justify-between items-center mb-4">
-                                    <h2 className="text-xl font-bold text-slate-800">Rooms</h2>
-                                    <button onClick={() => canEdit() && setShowAddRoom(!showAddRoom)} disabled={!canEdit()} className="flex items-center gap-1 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed">
-                                        <Home size={18} /><Plus size={18} />
-                                    </button>
-                                </div>
-                                {showAddRoom && (
-                                    <div className="mb-4 flex gap-2">
-                                        <input type="text" value={newRoomName} onChange={(e) => setNewRoomName(e.target.value)} onKeyPress={(e) => e.key === 'Enter' && addRoom()} placeholder="Room name..." className="flex-1 px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                                        <button onClick={addRoom} className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition">Add</button>
-                                    </div>
-                                )}
-                                <div className="space-y-2">
-                                    {rooms.map(room => {
-                                        const roomSnagCount = getRoomSnags(room.id).length;
-                                        const roomPendingCount = getRoomSnags(room.id).filter(s => !s.completed).length;
-                                        const isSelected = selectedRoom?.id === room.id;
-                                        const roomSnags = isSelected ? getRoomSnags(room.id) : [];
-                                        const pendingSnags = roomSnags.filter(s => !s.completed);
-                                        const completedSnags = roomSnags.filter(s => s.completed);
-                                        return (
-                                            <div key={room.id}>
-                                                <div draggable={canEdit()} onDragStart={(e) => handleDragStart(e, room)} onDragOver={handleDragOver} onDrop={(e) => handleDrop(e, room)} onDragEnd={handleDragEnd}
-                                                    className={`p-3 rounded-lg cursor-pointer transition ${isSelected ? 'bg-blue-100 border-2 border-blue-500' : 'bg-slate-50 hover:bg-slate-100 border-2 border-transparent'} ${draggedRoom?.id === room.id ? 'opacity-50' : ''}`}
-                                                    onClick={() => setSelectedRoom(room)}>
-                                                    <div className="flex justify-between items-center gap-2">
-                                                        <div className="flex items-center gap-2 flex-1">
-                                                            {room.thumbnail ? (
-                                                                <div className="relative group flex-shrink-0">
-                                                                    <img src={room.thumbnail} alt={room.name} className="w-12 h-12 object-cover rounded border-2 border-slate-300" />
-                                                                    {canEdit() && (
-                                                                        <button onClick={(e) => { e.stopPropagation(); deleteRoomThumbnail(room.id); }}
-                                                                            className="absolute -top-1 -right-1 p-0.5 bg-red-600 text-white rounded-full opacity-0 group-hover:opacity-100 transition">
-                                                                            <X size={10} />
-                                                                        </button>
-                                                                    )}
-                                                                </div>
-                                                            ) : (
-                                                                canEdit() && (
-                                                                    <label onClick={(e) => e.stopPropagation()} className="w-12 h-12 flex items-center justify-center bg-slate-200 rounded border-2 border-dashed border-slate-400 hover:bg-slate-300 cursor-pointer flex-shrink-0">
-                                                                        <Camera size={20} className="text-slate-500" />
-                                                                        <input type="file" accept="image/*" onChange={(e) => e.target.files[0] && addRoomThumbnail(room.id, e.target.files[0])} className="hidden" />
-                                                                    </label>
-                                                                )
-                                                            )}
-                                                            <div>
-                                                                <div className="font-semibold text-slate-800">{room.name}</div>
-                                                                <div className="text-sm text-slate-600">
-                                                                    {roomPendingCount > 0 ? <span className="text-orange-600">{roomPendingCount} pending</span> : roomSnagCount > 0 ? <span className="text-green-600">All complete</span> : <span className="text-slate-400">No snags</span>}
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                        {canEdit() && (
-                                                            <button onClick={(e) => { e.stopPropagation(); if (confirm(`Delete ${room.name}?`)) deleteRoom(room.id); }} className="p-1 text-red-600 hover:bg-red-100 rounded transition flex-shrink-0">
-                                                                <Trash2 size={18} />
-                                                            </button>
-                                                        )}
-                                                    </div>
-                                                </div>
-                                                {isSelected && (
-                                                    <div className="ml-4 mt-2 space-y-2">
-                                                        {canEdit() && (
-                                                            <div className="flex gap-2">
-                                                                <input type="text" value={newSnagText} onChange={(e) => setNewSnagText(e.target.value)} onKeyPress={(e) => e.key === 'Enter' && addSnag()} placeholder="Add a snag..." className="flex-1 px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                                                                <button onClick={addSnag} className="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition font-semibold">Add</button>
-                                                            </div>
-                                                        )}
-                                                        {pendingSnags.map(snag => (
-                                                            <div key={snag.id} className="p-2 bg-orange-50 border border-orange-200 rounded-lg text-sm">
-                                                                <div className="flex items-start gap-2 mb-1">
-                                                                    <button onClick={() => toggleSnag(snag.id)} disabled={!canEdit()} className="mt-0.5 p-1 border-2 border-slate-300 rounded hover:bg-green-100 hover:border-green-500 transition flex-shrink-0 disabled:opacity-50">
-                                                                        <Check size={12} className="text-transparent" />
-                                                                    </button>
-                                                                    {editingSnag === snag.id ? (
-                                                                        <div className="flex-1 flex gap-1">
-                                                                            <input type="text" value={editSnagText} onChange={(e) => setEditSnagText(e.target.value)}
-                                                                                onKeyPress={(e) => { if (e.key === 'Enter') saveEditSnag(snag.id); if (e.key === 'Escape') cancelEditSnag(); }}
-                                                                                className="flex-1 px-2 py-1 text-sm border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500" autoFocus />
-                                                                            <button onClick={() => saveEditSnag(snag.id)} className="p-1 bg-green-600 text-white rounded hover:bg-green-700 transition"><Check size={14} /></button>
-                                                                            <button onClick={cancelEditSnag} className="p-1 bg-slate-400 text-white rounded hover:bg-slate-500 transition"><X size={14} /></button>
-                                                                        </div>
-                                                                    ) : (
-                                                                        <div className="flex-1 text-slate-800">{snag.text}</div>
-                                                                    )}
-                                                                    {editingSnag !== snag.id && canEdit() && (
-                                                                        <>
-                                                                            <button onClick={() => startEditSnag(snag)} className="p-1 text-blue-600 hover:bg-blue-100 rounded transition flex-shrink-0"><Edit size={14} /></button>
-                                                                            <button onClick={() => deleteSnag(snag.id)} className="p-1 text-red-600 hover:bg-red-100 rounded transition flex-shrink-0"><Trash2 size={14} /></button>
-                                                                        </>
-                                                                    )}
-                                                                </div>
-                                                                {snag.photos?.length > 0 && (
-                                                                    <div className="flex flex-wrap gap-1 mb-1 ml-6">
-                                                                        {snag.photos.map(photo => (
-                                                                            <div key={photo.id} className="relative group">
-                                                                                <img src={photo.data} alt="Snag" className="w-16 h-16 object-cover rounded border border-slate-200 cursor-pointer hover:border-blue-500 transition" onClick={() => setViewingPhoto(photo)} />
-                                                                                {canEdit() && (
-                                                                                    <button onClick={() => deletePhoto(snag.id, photo.id)} className="absolute -top-1 -right-1 p-0.5 bg-red-600 text-white rounded-full opacity-0 group-hover:opacity-100 transition">
-                                                                                        <X size={10} />
-                                                                                    </button>
-                                                                                )}
-                                                                            </div>
-                                                                        ))}
-                                                                    </div>
-                                                                )}
-                                                                {snag.links?.length > 0 && (
-                                                                    <div className="flex flex-wrap gap-2 mb-1 ml-6">
-                                                                        {snag.links.map(link => (
-                                                                            <div key={link.id} className="flex items-center gap-1 bg-blue-50 border border-blue-300 rounded px-2 py-1">
-                                                                                <a href={link.url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800 underline text-xs">{link.text}</a>
-                                                                                {canEdit() && <button onClick={() => deleteLink(snag.id, link.id)} className="text-red-600 hover:text-red-800"><X size={12} /></button>}
-                                                                            </div>
-                                                                        ))}
-                                                                    </div>
-                                                                )}
-                                                                {canEdit() && (
-                                                                    <div className="ml-6 flex gap-1">
-                                                                        <label className="inline-flex items-center gap-1 px-2 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 transition cursor-pointer">
-                                                                            <Camera size={12} />Photo
-                                                                            <input type="file" accept="image/*" capture="environment" onChange={(e) => e.target.files[0] && addPhoto(snag.id, e.target.files[0])} className="hidden" />
-                                                                        </label>
-                                                                        {editingLink === snag.id ? (
-                                                                            <div className="flex gap-1 items-center">
-                                                                                <input type="text" value={linkText} onChange={(e) => setLinkText(e.target.value)} placeholder="Text..." className="px-2 py-1 text-xs border border-slate-300 rounded w-20" />
-                                                                                <input type="text" value={linkUrl} onChange={(e) => setLinkUrl(e.target.value)} placeholder="URL..." className="px-2 py-1 text-xs border border-slate-300 rounded w-24" />
-                                                                                <button onClick={() => addLink(snag.id)} className="px-2 py-1 bg-green-600 text-white text-xs rounded hover:bg-green-700">✓</button>
-                                                                                <button onClick={() => { setEditingLink(null); setLinkText(''); setLinkUrl(''); }} className="px-2 py-1 bg-slate-400 text-white text-xs rounded hover:bg-slate-500">✕</button>
-                                                                            </div>
-                                                                        ) : (
-                                                                            <button onClick={() => setEditingLink(snag.id)} className="inline-flex items-center gap-1 px-2 py-1 bg-purple-600 text-white text-xs rounded hover:bg-purple-700 transition">🔗 Link</button>
-                                                                        )}
-                                                                    </div>
-                                                                )}
-                                                            </div>
-                                                        ))}
-                                                        {completedSnags.map(snag => (
-                                                            <div key={snag.id} className="p-2 bg-green-50 border border-green-200 rounded-lg text-sm">
-                                                                <div className="flex items-start gap-2 mb-1">
-                                                                    <button onClick={() => toggleSnag(snag.id)} disabled={!canEdit()} className="mt-0.5 p-1 bg-green-500 border-2 border-green-500 rounded hover:bg-green-600 transition flex-shrink-0 disabled:opacity-50">
-                                                                        <Check size={12} className="text-white" />
-                                                                    </button>
-                                                                    <div className="flex-1 text-slate-600 line-through">{snag.text}</div>
-                                                                    {canEdit() && <button onClick={() => deleteSnag(snag.id)} className="p-1 text-red-600 hover:bg-red-100 rounded transition flex-shrink-0"><Trash2 size={14} /></button>}
-                                                                </div>
-                                                                {snag.photos?.length > 0 && (
-                                                                    <div className="flex flex-wrap gap-1 ml-6">
-                                                                        {snag.photos.map(photo => <img key={photo.id} src={photo.data} alt="Snag" className="w-16 h-16 object-cover rounded border border-slate-200 cursor-pointer hover:border-blue-500 transition opacity-60" onClick={() => setViewingPhoto(photo)} />)}
-                                                                    </div>
-                                                                )}
-                                                                {snag.links?.length > 0 && (
-                                                                    <div className="flex flex-wrap gap-2 ml-6">
-                                                                        {snag.links.map(link => <a key={link.id} href={link.url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800 underline text-xs bg-blue-50 border border-blue-300 rounded px-2 py-1">{link.text}</a>)}
-                                                                    </div>
-                                                                )}
-                                                            </div>
-                                                        ))}
-                                                        {roomSnags.length === 0 && <div className="text-center py-4 text-slate-400 text-xs">No snags yet</div>}
-                                                    </div>
-                                                )}
-                                            </div>
-                                        );
-                                    })}
-                                </div>
-                            </div>
-                            <div className="md:col-span-2 bg-white rounded-lg shadow-lg p-6">
-                                <div className="text-center py-12 text-slate-400">
-                                    <h2 className="text-2xl font-bold text-slate-700 mb-4">How to Use v{APP_VERSION}</h2>
-                                    <div className="text-left max-w-md mx-auto space-y-3 text-sm text-slate-600">
-                                        <p>✓ Sign in with Google for cloud sync</p>
-                                        <p>✓ Data syncs automatically across devices</p>
-                                        <p>✓ Works offline (read-only by default)</p>
-                                        <p>✓ Enable offline editing when working solo</p>
-                                        <p>✓ Click rooms to expand and add snags</p>
-                                        <p>✓ Edit snags with the pencil icon</p>
-                                        <p>✓ Attach photos and links to snags</p>
-                                        <p>✓ Download manual backup anytime</p>
-                                        <p className="text-blue-600 font-semibold mt-4">☁️ One file, all devices in sync!</p>
-                                    </div>
-                                </div>
+                            <p className="text-slate-700 mb-6">{modal.message}</p>
+                            <div className="flex justify-end space-x-3">
+                                <button
+                                    onClick={closeModal}
+                                    className="px-4 py-2 bg-slate-200 text-slate-700 rounded-lg hover:bg-slate-300 transition"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={handleAction}
+                                    className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition"
+                                >
+                                    Confirm Delete
+                                </button>
                             </div>
                         </div>
                     </div>
+                );
+            };
+
+
+            const SnagItem = ({ snag }) => {
+                const isEditing = editingSnagId === snag.firestoreId;
+
+                const statusClasses = snag.status === 'closed'
+                    ? 'bg-green-100 border-green-400 text-green-800 line-through'
+                    : 'bg-white border-yellow-400 text-slate-800';
+                
+                return (
+                    <div className={`snag-card p-4 rounded-xl border-l-8 transition duration-300 ${statusClasses} mb-3 flex flex-col sm:flex-row items-start sm:items-center justify-between`}>
+                        <div className="flex-grow w-full sm:w-auto">
+                            {isEditing ? (
+                                <input
+                                    type="text"
+                                    value={editingSnagText}
+                                    onChange={(e) => setEditingSnagText(e.target.value)}
+                                    className="w-full text-lg font-medium p-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                />
+                            ) : (
+                                <p className="text-lg font-medium break-words pr-4">{snag.text}</p>
+                            )}
+
+                            <div className="flex flex-wrap items-center mt-2 space-x-2">
+                                {snag.photo && (
+                                    <button 
+                                        onClick={() => setViewingPhoto({ data: snag.photo, text: snag.text })}
+                                        className="text-blue-600 hover:text-blue-800 text-sm flex items-center p-1 rounded-full bg-blue-50 hover:bg-blue-100 transition"
+                                    >
+                                        <Camera className="w-4 h-4 mr-1" /> View Photo
+                                    </button>
+                                )}
+                                {snag.link && (
+                                    <a 
+                                        href={snag.link} 
+                                        target="_blank" 
+                                        rel="noopener noreferrer"
+                                        className="text-indigo-600 hover:text-indigo-800 text-sm flex items-center p-1 rounded-full bg-indigo-50 hover:bg-indigo-100 transition"
+                                    >
+                                        <LinkIcon className="w-4 h-4 mr-1" /> View Link
+                                    </a>
+                                )}
+                                {!isEditing && (
+                                    <label htmlFor={`photo-upload-${snag.firestoreId}`} className="cursor-pointer text-slate-600 hover:text-slate-800 text-sm flex items-center p-1 rounded-full bg-slate-100 hover:bg-slate-200 transition">
+                                        <Upload className="w-4 h-4 mr-1" /> Add Photo
+                                        <input 
+                                            id={`photo-upload-${snag.firestoreId}`} 
+                                            type="file" 
+                                            accept="image/*" 
+                                            className="hidden" 
+                                            onChange={(e) => handlePhotoUpload(e, snag)}
+                                        />
+                                    </label>
+                                )}
+                                {isEditing && (
+                                    <input
+                                        type="url"
+                                        placeholder="Add Link URL"
+                                        defaultValue={snag.link || ''}
+                                        onBlur={(e) => handleLinkUpdate(snag, e.target.value)}
+                                        className="text-sm p-1 border border-slate-300 rounded-lg w-32"
+                                    />
+                                )}
+                            </div>
+                        </div>
+                        
+                        <div className="flex items-center space-x-2 mt-3 sm:mt-0">
+                            {isEditing ? (
+                                <button 
+                                    onClick={() => saveEdit(snag.firestoreId)}
+                                    className="p-2 bg-blue-500 hover:bg-blue-600 text-white rounded-full transition shadow-md"
+                                    title="Save Edit"
+                                >
+                                    <Check className="w-5 h-5" />
+                                </button>
+                            ) : (
+                                <button 
+                                    onClick={() => startEdit(snag)}
+                                    className="p-2 bg-yellow-500 hover:bg-yellow-600 text-white rounded-full transition shadow-md"
+                                    title="Edit Snag"
+                                >
+                                    <Edit className="w-5 h-5" />
+                                </button>
+                            )}
+                            
+                            <button 
+                                onClick={() => toggleSnagStatus(snag)}
+                                className={`p-2 rounded-full transition shadow-md ${snag.status === 'open' ? 'bg-green-500 hover:bg-green-600 text-white' : 'bg-slate-300 hover:bg-slate-400 text-slate-700'}`}
+                                title={snag.status === 'open' ? 'Mark Complete' : 'Mark Open'}
+                            >
+                                <Check className="w-5 h-5" />
+                            </button>
+                            <button 
+                                onClick={() => handleDeleteRequest(snag)}
+                                className="p-2 bg-red-500 hover:bg-red-600 text-white rounded-full transition shadow-md"
+                                title="Delete Snag"
+                            >
+                                <Trash className="w-5 h-5" />
+                            </button>
+                        </div>
+                    </div>
+                );
+            };
+
+            const openSnags = snags.filter(snag => snag.status === 'open');
+            const closedSnags = snags.filter(snag => snag.status === 'closed');
+            const connectionStatus = userId ? `Connected | User ID: ${userId.substring(0, 8)}...` : 'Not connected';
+            
+            return (
+                <div className="min-h-screen bg-slate-50 p-4 sm:p-8">
+                    {/* Confirmation Modal */}
+                    <CustomModal modal={modal} closeModal={() => setModal(null)} />
+
+                    <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 pb-4 border-b border-slate-200">
+                        <h1 className="text-3xl font-bold text-slate-800">Lodge Build Tracker</h1>
+                        <div className="flex items-center space-x-3 mt-3 sm:mt-0">
+                            <span className={`text-sm font-medium p-2 rounded-full ${userId ? 'bg-blue-100 text-blue-600' : 'bg-red-100 text-red-600'}`}>
+                                ☁️ {connectionStatus}
+                            </span>
+                        </div>
+                    </header>
+                    
+                    <p className="mb-4 text-sm text-center text-slate-600 p-3 bg-slate-100 rounded-lg">
+                        **Status:** {status}
+                    </p>
+
+                    <main className="max-w-4xl mx-auto">
+                        
+                        {/* Add New Snag Form */}
+                        <form onSubmit={addSnag} className="mb-8 p-6 bg-white rounded-xl shadow-lg">
+                            <h2 className="text-xl font-semibold text-slate-700 mb-4 flex items-center"><Plus className="w-5 h-5 mr-2"/> Add New Snag</h2>
+                            <div className="flex flex-col sm:flex-row gap-3">
+                                <input
+                                    type="text"
+                                    placeholder="Enter a new snag item (e.g., 'Touch up paint in bedroom 2')"
+                                    value={newSnagText}
+                                    onChange={(e) => setNewSnagText(e.target.value)}
+                                    className="flex-grow p-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    required
+                                    disabled={!isAuthReady}
+                                />
+                                <button 
+                                    type="submit"
+                                    className="px-6 py-3 bg-green-500 hover:bg-green-600 text-white font-bold rounded-xl transition shadow-md"
+                                    disabled={!isAuthReady || !newSnagText.trim()}
+                                >
+                                    Add Snag
+                                </button>
+                            </div>
+                        </form>
+
+                        {/* Snag Lists */}
+                        <div className="grid md:grid-cols-2 gap-6">
+                            {/* Open Snags */}
+                            <div>
+                                <h2 className="text-2xl font-bold text-yellow-600 mb-4 p-2 rounded-lg bg-yellow-50">🚧 Open Snags ({openSnags.length})</h2>
+                                {!isAuthReady && <p className="text-slate-500 p-4 bg-white rounded-xl shadow">Awaiting secure connection...</p>}
+                                {isAuthReady && openSnags.length === 0 && (
+                                    <p className="text-slate-500 p-4 bg-white rounded-xl shadow">All clear! No open snags.</p>
+                                )}
+                                {isAuthReady && openSnags.map(snag => <SnagItem key={snag.firestoreId} snag={snag} />)}
+                            </div>
+
+                            {/* Closed Snags */}
+                            <div>
+                                <h2 className="text-2xl font-bold text-green-600 mb-4 p-2 rounded-lg bg-green-50">✅ Closed Snags ({closedSnags.length})</h2>
+                                {!isAuthReady && <p className="text-slate-500 p-4 bg-white rounded-xl shadow">Awaiting secure connection...</p>}
+                                {isAuthReady && closedSnags.length === 0 && (
+                                    <p className="text-slate-500 p-4 bg-white rounded-xl shadow">No completed snags yet.</p>
+                                )}
+                                {isAuthReady && closedSnags.map(snag => <SnagItem key={snag.firestoreId} snag={snag} />)}
+                            </div>
+                        </div>
+                    </main>
+
+                    {/* Photo Viewer Modal */}
                     {viewingPhoto && (
                         <div className="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50 p-4" onClick={() => setViewingPhoto(null)}>
                             <div className="relative max-w-4xl max-h-full">
-                                <button onClick={() => setViewingPhoto(null)} className="absolute -top-10 right-0 p-2 bg-white text-slate-800 rounded-full hover:bg-slate-100 transition">
+                                <button onClick={(e) => { e.stopPropagation(); setViewingPhoto(null); }} className="absolute -top-10 right-0 p-3 bg-white text-slate-800 rounded-full hover:bg-slate-100 transition shadow-lg">
                                     <X size={24} />
                                 </button>
-                                <img src={viewingPhoto.data} alt="Full size" className="max-w-full max-h-[90vh] object-contain rounded-lg" />
+                                <img 
+                                    src={viewingPhoto.data} 
+                                    alt={viewingPhoto.text} 
+                                    className="max-w-full max-h-[90vh] object-contain rounded-lg shadow-2xl" 
+                                    onClick={(e) => e.stopPropagation()} // Prevent closing when clicking the image
+                                />
+                                <p className="text-white text-center mt-2 font-medium">{viewingPhoto.text}</p>
                             </div>
                         </div>
                     )}
+                    
+                    <footer className="mt-12 text-center text-sm text-slate-500 border-t pt-4 max-w-4xl mx-auto">
+                        Lodge Tracker v{APP_VERSION} | Data saved securely with Firestore
+                    </footer>
                 </div>
             );
         }
+
+        // Standard React initialization
         ReactDOM.render(<LodgeTracker />, document.getElementById('root'));
     </script>
 </body>
