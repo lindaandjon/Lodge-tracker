@@ -78,17 +78,19 @@
         /* Desktop (lg breakpoint) 3-Column Layout FIX */
         @media (min-width: 1024px) {
             .main-content {
-                /* Define 3 columns explicitly */
-                grid-template-columns: minmax(200px, 1.5fr) minmax(250px, 2fr) minmax(350px, 4fr);
-                /* Ensure children fill the grid cells correctly */
+                /* Define 3 columns explicitly and ensure it uses grid */
                 display: grid; 
+                grid-template-columns: minmax(200px, 1.5fr) minmax(250px, 2fr) minmax(350px, 4fr);
             }
             .panel {
-                position: relative; /* Revert to normal flow on desktop */
+                /* CRITICAL FIX: Reset absolute positioning so grid takes over */
+                position: relative !important; 
                 z-index: 1;
                 border-right: 1px solid #E2E8F0; /* slate-200 */
                 /* Reset mobile transforms */
                 transform: none !important;
+                width: auto; /* Reset explicit width from mobile */
+                height: auto; /* Reset explicit height from mobile */
             }
             .items-panel {
                  border-right: none; /* Last panel shouldn't have a right border */
@@ -140,7 +142,7 @@
         const { useState, useEffect, useMemo, useCallback } = React;
         
         // --- CONFIGURATION ---
-        const APP_VERSION = '12.3 (Layout Fixed)'; // Updated version
+        const APP_VERSION = '12.4 (Desktop Layout Fixed)'; // Updated version
         const TABLE_NAME = 'snags';
         const CATEGORY_STORAGE_KEY = 'snag_projects_v11_3'; // Old localStorage key (for migration only)
         
@@ -150,7 +152,7 @@
         
         // !!! IMPORTANT: Supabase URL has been pasted below. Please replace the ANON KEY placeholder !!!
         const SUPABASE_URL = 'https://ejozspveaasscxqovitn.supabase.co'; 
-        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVqb3pzcHZlYWFzc2N4cW92aXRuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjA0MzMyOTcsImV4cCI6MjA3NjAwOTI5N30.D--chXcvpMl_gDRY0ZvBcAg3nzwwDAuuFHTB2pgYtZ8';
+        const SUPABASE_ANON_KEY = 'PASTE_YOUR_SUPABASE_ANON_KEY_HERE';
         // --- END CONFIGURATION ---
         
         // Initial setup data (Set to empty {} for a blank canvas start)
@@ -1133,8 +1135,9 @@
             const ProjectsPanel = ({ allProjects, selectedProject, onSelectProject, structureAction, isDesktop, activePanel, isClearDbVisible, handleClearDatabase, totalSnagsCount }) => {
                 const isActive = isDesktop || activePanel === 'projects';
 
+                // Removed lg:w-1/4
                 return (
-                    <div className={`panel projects-panel ${isActive ? 'active-panel' : 'hidden-right'} lg:w-1/4`}>
+                    <div className={`panel projects-panel ${isActive ? 'active-panel' : 'hidden-right'}`}>
                         <div className="p-4 border-b border-slate-200 bg-white">
                             <h2 className="text-xl font-bold text-primary flex items-center">
                                 <LayoutGrid className="w-5 h-5 mr-2"/> Projects ({allProjects.length})
@@ -1215,8 +1218,9 @@
                 const isActive = isDesktop || activePanel === 'groups';
                 const availableGroups = allGroupsMap[selectedProject] || [];
 
+                // Removed lg:w-1/4
                 return (
-                    <div className={`panel groups-panel ${isActive ? 'active-panel' : 'hidden-right'} lg:w-1/4`}>
+                    <div className={`panel groups-panel ${isActive ? 'active-panel' : 'hidden-right'}`}>
                         
                         {/* Header */}
                         <div className="p-4 border-b border-slate-200 bg-white">
@@ -1297,8 +1301,9 @@
 
                 const displayTitle = allProjects.length === 0 ? 'Orphaned Items (No Projects)' : `${selectedProject} - ${selectedGroup}`;
 
+                // Removed lg:w-1/2
                 return (
-                    <div className={`panel items-panel ${isActive ? 'active-panel' : 'hidden-right'} lg:w-1/2`}>
+                    <div className={`panel items-panel ${isActive ? 'active-panel' : 'hidden-right'}`}>
                         {/* Header */}
                         <div className="p-4 border-b border-slate-200 bg-white shadow-sm">
                             <div className="flex items-center">
