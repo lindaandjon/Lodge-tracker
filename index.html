@@ -63,7 +63,10 @@
                     if (!window.gapi) { loadFromLocalStorage(); return; }
                     window.gapi.load('client', async () => {
                         try {
-                            await window.gapi.client.init({ apiKey: API_KEY });
+                            await window.gapi.client.init({
+								apiKey: API_KEY,
+								discoveryDocs: ['https://www.googleapis.com/discovery/v1/apis/drive/v3/rest']
+							});
                             // Don't pre-load Drive API - load it on demand
                             setGapiReady(true);
                             const savedToken = localStorage.getItem('gapi_access_token');
@@ -170,6 +173,10 @@
             };
 
             const loadFromDrive = async () => {
+				if (!window.gapi.client.drive) {
+					await window.gapi.client.load('drive', 'v3');
+					}
+
                 if (!isSignedIn || !gapiReady || !accessToken) return;
                 setIsSyncing(true);
                 try {
@@ -191,6 +198,10 @@
             };
 
             const saveToDrive = async () => {
+				if (!window.gapi.client.drive) {
+					await window.gapi.client.load('drive', 'v3');
+					}
+
                 if (!isSignedIn || !isOnline || !gapiReady || !accessToken) return;
                 setIsSyncing(true);
                 try {
@@ -211,7 +222,14 @@
                             new Notification('Lodge Tracker', { body: '✅ Synced to Google Drive', icon: 'icon-192.png' });
                         }
                     }
-                } catch (e) { console.error(e); } finally { setIsSyncing(false); }
+                } catch (e) {
+					console.error('Drive sync error:', e);
+					alert('Drive sync failed: ' + (e.message || 'Unknown error'));
+					} finally {
+						setIsSyncing(false);
+					}
+
+
             };
 
             useEffect(() => {
