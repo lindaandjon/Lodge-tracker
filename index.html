@@ -3,1116 +3,1227 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Lodge Build Tracker</title>
-    
-    <link rel="manifest" href="manifest.json">
-    <meta name="theme-color" content="#2563eb">
-    <link rel="apple-touch-icon" href="icon-192.png">
-    
+    <title>Project Snag Tracker</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        'primary': '#1E40AF', // Blue-800
+                        'accent': '#10B981',  // Green-500
+                        'status-open': '#F59E0B', // Amber-500
+                        'status-closed': '#10B981', // Green-500
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- React & Babel -->
     <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
     <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://accounts.google.com/gsi/client" async defer></script>
-    <script src="https://accounts.google.com/gsi/client" async defer></script>
-    <script src="https://apis.google.com/js/api.js"></script>
-</head>
-<body>
-    <div id="root"></div>
+    <!-- Supabase Client Library -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     
+    <style>
+        /* Custom styles for the sleek look */
+        html, body, #root {
+            height: 100%;
+            margin: 0;
+            overflow: hidden; /* Prevent body scroll */
+        }
+        .app-container {
+            height: 100vh;
+            display: flex;
+            flex-direction: column; 
+        }
+
+        /* Base Mobile (Single Column) */
+        .main-content { 
+            flex-grow: 1;
+            display: grid;
+            grid-template-columns: 1fr; 
+            overflow: hidden;
+            position: relative; /* Needed for absolute positioning of mobile panels */
+        }
+        
+        .panel {
+            padding: 0;
+            background-color: white;
+            display: flex;
+            flex-direction: column;
+            overflow-y: hidden; 
+            /* Mobile: Absolute position for smooth transitions */
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            transition: transform 0.3s ease-in-out, z-index 0s;
+            z-index: 10;
+        }
+
+        /* Panel transitions for mobile sliding effect */
+        .panel.hidden-right { transform: translateX(100%); z-index: 5; }
+        .panel.active-panel { transform: translateX(0); z-index: 15; }
+
+        /* Desktop (lg breakpoint) 3-Column Layout */
+        @media (min-width: 1024px) {
+            .main-content {
+                grid-template-columns: minmax(180px, 1fr) minmax(250px, 1.5fr) minmax(350px, 3fr);
+            }
+            .panel {
+                position: relative; /* Revert to normal flow on desktop */
+                z-index: 1;
+                border-right: 1px solid #E2E8F0; /* slate-200 */
+                /* Reset mobile transforms */
+                transform: none !important;
+            }
+            .items-panel {
+                 border-right: none;
+            }
+        }
+
+        .panel-list-wrapper { /* General purpose wrapper for scrollable lists */
+            flex-grow: 1;
+            overflow-y: auto;
+        }
+
+        .snag-card {
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.08), 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+            transition: all 0.2s ease-in-out;
+            cursor: default;
+        }
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(15, 23, 42, 0.8);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+        .modal-content {
+            background-color: white;
+            padding: 2rem;
+            border-radius: 1rem;
+            max-width: 90%;
+            width: 450px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+        }
+        .snag-description a {
+            color: #2563EB; 
+            text-decoration: underline;
+            font-weight: 600;
+            word-break: break-word;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 font-sans antialiased">
+    <div id="root" class="app-container"></div>
+
     <script type="text/babel">
-        const { useState, useEffect } = React;
+        const { useState, useEffect, useMemo, useCallback } = React;
         
-        const CLIENT_ID = '143126622947-aua7tmjl6rf5fq4i4ggijrvvbe8ut9ck.apps.googleusercontent.com';
-        const API_KEY = 'AIzaSyA9Z_fZB1Sv5mUPmToeRQdkgUPxHu6U3q4';
-        const SCOPES = 'https://www.googleapis.com/auth/drive.file';
-        const DISCOVERY_DOCS = ['https://www.googleapis.com/discovery/v1/apis/drive/v3/rest'];
+        // --- CONFIGURATION ---
+        const APP_VERSION = '11.5 (Rooms & Thumbnails)'; // Updated version
+        const TABLE_NAME = 'snags';
+        const CATEGORY_STORAGE_KEY = 'snag_projects_v11_3'; 
         
-        // Icons
-        const Plus = ({ size = 24 }) => (
-            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <line x1="12" y1="5" x2="12" y2="19"></line>
-                <line x1="5" y1="12" x2="19" y2="12"></line>
-            </svg>
-        );
+        // !!! IMPORTANT: REPLACE THESE PLACEHOLDERS WITH YOUR SUPABASE KEYS !!!
+        const SUPABASE_URL = 'https://ejozspveaasscxqovitn.supabase.co'; 
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVqb3pzcHZlYWFzc2N4cW92aXRuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjA0MzMyOTcsImV4cCI6MjA3NjAwOTI5N30.D--chXcvpMl_gDRY0ZvBcAg3nzwwDAuuFHTB2pgYtZ8';
+        // --- END CONFIGURATION ---
         
-        const Trash2 = ({ size = 24 }) => (
-            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <polyline points="3 6 5 6 21 6"></polyline>
-                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-            </svg>
-        );
-        
-        const Check = ({ size = 24 }) => (
-            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <polyline points="20 6 9 17 4 12"></polyline>
-            </svg>
-        );
-        
-        const X = ({ size = 24 }) => (
-            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <line x1="18" y1="6" x2="6" y2="18"></line>
-                <line x1="6" y1="6" x2="18" y2="18"></line>
-            </svg>
-        );
-        
-        const Edit = ({ size = 24 }) => (
-            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
-                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
-            </svg>
-        );
-        
-        const Download = ({ size = 24 }) => (
-            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                <polyline points="7 10 12 15 17 10"></polyline>
-                <line x1="12" y1="15" x2="12" y2="3"></line>
-            </svg>
-        );
-        
-        const Camera = ({ size = 24 }) => (
-            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
-                <circle cx="12" cy="13" r="4"></circle>
-            </svg>
-        );
+        // Initial setup data 
+        const INITIAL_PROJECTS = {
+            "Lodge Build": ["Kitchen", "Master Bedroom", "Utility Room", "Exterior"],
+            "Legal": ["Sols", "Planning", "Contracts"],
+            "Financial": ["Mortgage", "Insurance"],
+        };
 
-        const Home = ({ size = 24 }) => (
-            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
-                <polyline points="9 22 9 12 15 12 15 22"></polyline>
-            </svg>
-        );
+        // --- ICONS (Lucide React equivalent SVGs) ---
+        const X = (props) => <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6L6 18"/><path d="M6 6l12 12"/></svg>;
+        const Check = (props) => <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5"/></svg>;
+        const Trash = (props) => <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M10 4h4V2h-4z"/></svg>;
+        const Edit = (props) => <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5L2 22l1.5-5.5L17 3z"/></svg>;
+        const Plus = (props) => <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14"/><path d="M5 12h14"/></svg>;
+        const Camera = (props) => <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>;
+        const LinkIcon = (props) => <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>;
+        const Tag = (props) => <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12.5 16H2"/><path d="M22 7l-5-5L2 17l5 5z"/></svg>;
+        const LayoutGrid = (props) => <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/></svg>;
+        const ArrowLeft = (props) => <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m12 19l-7-7 7-7"/><path d="M19 12H5"/></svg>;
 
-        const Cloud = ({ size = 24 }) => (
-            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"></path>
-            </svg>
-        );
 
-        const CloudOff = ({ size = 24 }) => (
-            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M22.61 16.95A5 5 0 0 0 18 10h-1.26a8 8 0 0 0-7.05-6M5 5a8 8 0 0 0 4 15h9a5 5 0 0 0 1.7-.3"></path>
-                <line x1="1" y1="1" x2="23" y2="23"></line>
-            </svg>
-        );
-
-        const Lock = ({ size = 24 }) => (
-            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
-                <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
-            </svg>
-        );
-
-        const Unlock = ({ size = 24 }) => (
-            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
-                <path d="M7 11V7a5 5 0 0 1 9.9-1"></path>
-            </svg>
-        );
-
-        function LodgeSnagTracker() {
-            const [rooms, setRooms] = useState([]);
-            const [snags, setSnags] = useState([]);
-            const [selectedRoom, setSelectedRoom] = useState(null);
-            const [newRoomName, setNewRoomName] = useState('');
-            const [newSnagText, setNewSnagText] = useState('');
-            const [showAddRoom, setShowAddRoom] = useState(false);
-            const [viewingPhoto, setViewingPhoto] = useState(null);
-            const [draggedRoom, setDraggedRoom] = useState(null);
-            const [editingLink, setEditingLink] = useState(null);
-            const [linkText, setLinkText] = useState('');
-            const [linkUrl, setLinkUrl] = useState('');
-            const [editingSnag, setEditingSnag] = useState(null);
-            const [editSnagText, setEditSnagText] = useState('');
+        // --- UTILITY FUNCTIONS ---
+        const renderMarkdownLinks = (text) => {
+            if (!text) return { __html: '' };
+            const regex = /\[([^\]]+)\]\(([^)]+)\)/g;
             
-            // Google Drive & Sync State
-            const [isSignedIn, setIsSignedIn] = useState(false);
-            const [isOnline, setIsOnline] = useState(navigator.onLine);
-            const [allowOfflineEdit, setAllowOfflineEdit] = useState(false);
-            const [driveFileId, setDriveFileId] = useState(null);
-            const [isSyncing, setIsSyncing] = useState(false);
-            const [lastSyncTime, setLastSyncTime] = useState(null);
-            const [gapiReady, setGapiReady] = useState(false);
-            const [accessToken, setAccessToken] = useState(null);
-            const [tokenClient, setTokenClient] = useState(null);
+            const htmlText = text.replace(regex, (match, linkText, url) => {
+                let safeUrl = url.trim();
+                if (!safeUrl.match(/^(https?:\/\/|mailto:)/i)) {
+                    safeUrl = 'http://' + safeUrl;
+                }
+                return `<a href="${safeUrl}" target="_blank" rel="noopener noreferrer">${linkText}</a>`;
+            });
 
-            // Initialize Google API with new GIS
+            return { __html: htmlText };
+        };
+
+        const loadProjects = () => {
+            try {
+                const stored = localStorage.getItem(CATEGORY_STORAGE_KEY);
+                return stored ? JSON.parse(stored) : INITIAL_PROJECTS;
+            } catch (e) {
+                console.error("Error loading projects from localStorage:", e);
+                return INITIAL_PROJECTS;
+            }
+        };
+
+        const saveProjects = (map) => {
+            try {
+                localStorage.setItem(CATEGORY_STORAGE_KEY, JSON.stringify(map));
+            } catch (e) {
+                console.error("Error saving projects to localStorage:", e);
+            }
+        };
+
+
+        function Tracker() {
+            const [snags, setSnags] = useState([]);
+            
+            // Structure Management State
+            const [allGroupsMap, setAllGroupsMap] = useState(loadProjects);
+            const allProjects = useMemo(() => Object.keys(allGroupsMap).sort(), [allGroupsMap]);
+
+            // UI State for the navigation: defaults set in useEffect
+            const [selectedProject, setSelectedProject] = useState(allProjects[0] || '');
+            const [selectedGroup, setSelectedGroup] = useState('');
+            
+            // MOBILE State: 'projects', 'groups', 'items'
+            const [activePanel, setActivePanel] = useState('projects'); 
+            // Check for desktop size on load and resize
+            const [isDesktop, setIsDesktop] = useState(window.innerWidth >= 1024);
+            
             useEffect(() => {
-                const initClient = () => {
-                    if (!window.gapi) {
-                        console.error('Google API not loaded');
-                        alert('Google API failed to load. Check if ad blockers are blocking apis.google.com');
-                        loadFromLocalStorage();
-                        return;
-                    }
-
-                    window.gapi.load('client', async () => {
-                        try {
-                            await window.gapi.client.init({
-                                apiKey: API_KEY,
-                                discoveryDocs: DISCOVERY_DOCS,
-                            });
-                            console.log('Google API client initialized');
-                            setGapiReady(true);
-                            
-                            // Check if user was previously signed in
-                            const savedToken = localStorage.getItem('gapi_access_token');
-                            if (savedToken) {
-                                setAccessToken(savedToken);
-                                setIsSignedIn(true);
-                                loadFromDrive();
-                            } else {
-                                loadFromLocalStorage();
-                            }
-                        } catch (err) {
-                            console.error('Error initializing Google API:', err);
-                            alert('Error initializing Google Drive: ' + (err.error || err.message || 'Unknown error'));
-                            loadFromLocalStorage();
-                        }
-                    });
-                };
-
-                // Initialize GIS token client
-                const initTokenClient = () => {
-                    if (!window.google || !window.google.accounts) {
-                        console.log('Waiting for Google Identity Services...');
-                        return;
-                    }
-
-                    const client = window.google.accounts.oauth2.initTokenClient({
-                        client_id: CLIENT_ID,
-                        scope: SCOPES,
-                        callback: (response) => {
-                            if (response.error) {
-                                console.error('Token error:', response);
-                                alert('Sign-in failed: ' + response.error);
-                                return;
-                            }
-                            console.log('Access token received');
-                            setAccessToken(response.access_token);
-                            localStorage.setItem('gapi_access_token', response.access_token);
-                            setIsSignedIn(true);
-                            loadFromDrive();
-                        },
-                    });
-                    setTokenClient(client);
-                    console.log('Token client initialized');
-                };
-
-                // Wait for both scripts to load
-                let attempts = 0;
-                const checkReady = setInterval(() => {
-                    attempts++;
-                    if (window.gapi && window.google?.accounts?.oauth2) {
-                        clearInterval(checkReady);
-                        initClient();
-                        initTokenClient();
-                    } else if (attempts > 20) {
-                        clearInterval(checkReady);
-                        console.error('Google APIs failed to load after 10 seconds');
-                        alert('Google Drive sync unavailable. Using local mode.');
-                        loadFromLocalStorage();
-                    }
-                }, 500);
-
-                return () => clearInterval(checkReady);
+                const handleResize = () => setIsDesktop(window.innerWidth >= 1024);
+                window.addEventListener('resize', handleResize);
+                return () => window.removeEventListener('resize', handleResize);
             }, []);
 
-            // Monitor online/offline status
-            useEffect(() => {
-                const handleOnline = () => setIsOnline(true);
-                const handleOffline = () => setIsOnline(false);
 
-                window.addEventListener('online', handleOnline);
-                window.addEventListener('offline', handleOffline);
+            // Modal States
+            const [modal, setModal] = useState(null); // Used for confirm/structure
+            const [linkModal, setLinkModal] = useState(null); // Used for link insertion
+            const [isAddSnagModalOpen, setIsAddSnagModalOpen] = useState(false); // Used for adding new items
+            const [viewingPhoto, setViewingPhoto] = useState(null);
+            
+            // New Item Form State (initialized to first available values)
+            // Note: These will be updated in handleAddItemClick before modal opens
+            const [newProjectCategory, setNewProjectCategory] = useState(allProjects[0] || '');
+            const [newProjectGroup, setNewProjectGroup] = useState(allGroupsMap[allProjects[0]]?.[0] || '');
 
-                return () => {
-                    window.removeEventListener('online', handleOnline);
-                    window.removeEventListener('offline', handleOffline);
-                };
-            }, []);
+            const [newSnagText, setNewSnagText] = useState('');
 
-            // Load from localStorage
-            const loadFromLocalStorage = () => {
-                const savedRooms = localStorage.getItem('lodgeRooms');
-                const savedSnags = localStorage.getItem('lodgeSnags');
-                const savedFileId = localStorage.getItem('driveFileId');
-                
-                if (savedRooms && savedSnags) {
-                    setRooms(JSON.parse(savedRooms));
-                    setSnags(JSON.parse(savedSnags));
-                }
-                if (savedFileId) {
-                    setDriveFileId(savedFileId);
-                }
-            };
+            // Editing Item State 
+            const [editingSnagId, setEditingSnagId] = useState(null);
+            const [editingSnagText, setEditingSnagText] = useState('');
+            const [editingProjectCategory, setEditingProjectCategory] = useState('');
+            const [editingProjectGroup, setEditingProjectGroup] = useState('');
 
-            // Save to localStorage
-            useEffect(() => {
-                localStorage.setItem('lodgeRooms', JSON.stringify(rooms));
-            }, [rooms]);
+            // System State
+            const [status, setStatus] = useState('Awaiting connection...');
+            const [supabaseClient, setSupabaseClient] = useState(null);
+            
+
+            // --- SUPABASE INITIALIZATION & LISTENER ---
 
             useEffect(() => {
-                localStorage.setItem('lodgeSnags', JSON.stringify(snags));
-            }, [snags]);
-
-            // Google Sign In with new GIS
-            const handleSignIn = () => {
-                if (!tokenClient) {
-                    alert('Google Sign-In not ready yet. Please wait a moment and try again.');
+                if (SUPABASE_URL.includes('PASTE_') || SUPABASE_ANON_KEY.includes('PASTE_')) {
+                    setStatus('Error: Supabase keys are missing. Please enter them in the CONFIGURATION section.');
                     return;
                 }
-                tokenClient.requestAccessToken();
-            };
-
-            const handleSignOut = () => {
-                if (accessToken) {
-                    window.google.accounts.oauth2.revoke(accessToken, () => {
-                        console.log('Access token revoked');
-                    });
-                }
-                setAccessToken(null);
-                localStorage.removeItem('gapi_access_token');
-                setIsSignedIn(false);
-                setDriveFileId(null);
-                localStorage.removeItem('driveFileId');
-            };
-
-            // Find or create file in Drive
-            const findOrCreateFile = async () => {
-                try {
-                    const response = await window.gapi.client.drive.files.list({
-                        q: "name='lodge-backup.json' and trashed=false",
-                        spaces: 'drive',
-                        fields: 'files(id, name)'
-                    });
-
-                    if (response.result.files && response.result.files.length > 0) {
-                        return response.result.files[0].id;
-                    }
-
-                    const fileMetadata = {
-                        name: 'lodge-backup.json',
-                        mimeType: 'application/json'
-                    };
-                    const fileContent = JSON.stringify({ rooms: [], snags: [], savedDate: new Date().toISOString() });
-                    
-                    const file = new Blob([fileContent], { type: 'application/json' });
-                    const formData = new FormData();
-                    formData.append('metadata', new Blob([JSON.stringify(fileMetadata)], { type: 'application/json' }));
-                    formData.append('file', file);
-
-                    const uploadResponse = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
-                        method: 'POST',
-                        headers: new Headers({ 'Authorization': 'Bearer ' + window.gapi.auth.getToken().access_token }),
-                        body: formData
-                    });
-
-                    const result = await uploadResponse.json();
-                    return result.id;
-                } catch (error) {
-                    console.error('Error finding/creating file:', error);
-                    return null;
-                }
-            };
-
-            // Load from Drive
-            const loadFromDrive = async () => {
-                if (!isSignedIn || !gapiReady) return;
                 
-                setIsSyncing(true);
                 try {
-                    let fileId = driveFileId;
-                    if (!fileId) {
-                        fileId = await findOrCreateFile();
-                        if (fileId) {
-                            setDriveFileId(fileId);
-                            localStorage.setItem('driveFileId', fileId);
-                        }
-                    }
-
-                    if (fileId) {
-                        const response = await window.gapi.client.drive.files.get({
-                            fileId: fileId,
-                            alt: 'media'
-                        });
-
-                        const data = response.result;
-                        if (data.rooms && data.snags) {
-                            setRooms(data.rooms);
-                            setSnags(data.snags);
-                            setLastSyncTime(Date.now());
-                        }
-                    }
+                    const client = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+                    setSupabaseClient(client);
+                    setStatus('Client initialized...');
                 } catch (error) {
-                    console.error('Error loading from Drive:', error);
-                } finally {
-                    setIsSyncing(false);
+                    console.error("Supabase Initialization Error:", error);
+                    setStatus(`Initialization Error: ${error.message}`);
                 }
-            };
+            }, []);
 
-            // Save to Drive
-            const saveToDrive = async () => {
-                if (!isSignedIn || !isOnline || !gapiReady) return;
+            const fetchSnags = useCallback(async (client) => {
+                if (!client) return;
 
-                setIsSyncing(true);
-                try {
-                    let fileId = driveFileId;
-                    if (!fileId) {
-                        fileId = await findOrCreateFile();
-                        if (fileId) {
-                            setDriveFileId(fileId);
-                            localStorage.setItem('driveFileId', fileId);
-                        }
-                    }
+                setStatus('Fetching data...');
+                const { data, error } = await client
+                    .from(TABLE_NAME)
+                    .select('*')
+                    .order('created_at', { ascending: false });
 
-                    if (fileId) {
-                        const data = {
-                            rooms,
-                            snags,
-                            savedDate: new Date().toISOString()
-                        };
-
-                        await window.gapi.client.request({
-                            path: '/upload/drive/v3/files/' + fileId,
-                            method: 'PATCH',
-                            params: { uploadType: 'media' },
-                            body: JSON.stringify(data)
-                        });
-
-                        setLastSyncTime(Date.now());
-                        
-                        if ('Notification' in window && Notification.permission === 'granted') {
-                            new Notification('Lodge Tracker', {
-                                body: '✅ Synced to Google Drive',
-                                icon: 'icon-192.png'
-                            });
-                        }
-                    }
-                } catch (error) {
-                    console.error('Error saving to Drive:', error);
-                } finally {
-                    setIsSyncing(false);
+                if (error) {
+                    console.error("Fetch Error:", error);
+                    setStatus(`Error fetching data: ${error.message}`);
+                    return;
                 }
-            };
 
-            // Auto-save to Drive when data changes
+                setSnags(data);
+                setStatus(`Sync successful. ${data.length} items.`);
+
+                const projects = Object.keys(allGroupsMap).sort();
+                
+                // --- Default Selection Logic ---
+                let projectToSelect = selectedProject;
+                let groupToSelect = selectedGroup;
+
+                // 1. If currently selected project is invalid or null, select the first available one
+                if (!projectToSelect || !projects.includes(projectToSelect)) {
+                    projectToSelect = projects[0] || '';
+                } 
+
+                // 2. If a valid project is now selected, ensure the selected group is valid
+                if (projectToSelect) {
+                    const currentGroups = allGroupsMap[projectToSelect] || [];
+                    if (!groupToSelect || !currentGroups.includes(groupToSelect)) {
+                        groupToSelect = currentGroups[0] || '';
+                    }
+                } else {
+                    groupToSelect = '';
+                }
+
+                setSelectedProject(projectToSelect);
+                setSelectedGroup(groupToSelect);
+                // --- End Default Selection Logic ---
+
+                // Set new snag modal defaults here too
+                // This initialization is largely superseded by handleAddItemClick, but kept for initial form clarity.
+                const firstProj = projects[0] || '';
+                setNewProjectCategory(firstProj);
+                setNewProjectGroup(allGroupsMap[firstProj]?.[0] || '');
+
+            }, [allGroupsMap, selectedProject, selectedGroup]); // Depend on allGroupsMap for project/group structure
+
             useEffect(() => {
-                if (isSignedIn && isOnline && (rooms.length > 0 || snags.length > 0)) {
-                    const timer = setTimeout(() => {
-                        saveToDrive();
-                    }, 2000);
-                    return () => clearTimeout(timer);
-                }
-            }, [rooms, snags, isSignedIn, isOnline]);
+                if (!supabaseClient) return;
+                
+                fetchSnags(supabaseClient);
 
-            // Check if editing is allowed
-            const canEdit = () => {
-                if (!isSignedIn) return true;
-                if (isOnline) return true;
-                return allowOfflineEdit;
-            };
+                const subscription = supabaseClient
+                    .channel('public:snags_updates')
+                    .on('postgres_changes', { event: '*', schema: 'public', table: TABLE_NAME }, payload => {
+                        fetchSnags(supabaseClient);
+                    })
+                    .subscribe();
 
-            const addRoom = () => {
-                if (!canEdit()) return;
-                if (newRoomName.trim()) {
-                    const newRoom = { id: Date.now(), name: newRoomName.trim(), thumbnail: null };
-                    setRooms([...rooms, newRoom]);
-                    setNewRoomName('');
-                    setShowAddRoom(false);
-                }
-            };
-
-            const addRoomThumbnail = (roomId, file) => {
-                if (!canEdit() || !file || !file.type.startsWith('image/')) return;
-                const reader = new FileReader();
-                reader.onload = (e) => {
-                    setRooms(rooms.map(r => r.id === roomId ? { ...r, thumbnail: e.target.result } : r));
-                };
-                reader.readAsDataURL(file);
-            };
-
-            const deleteRoomThumbnail = (roomId) => {
-                if (!canEdit()) return;
-                setRooms(rooms.map(r => r.id === roomId ? { ...r, thumbnail: null } : r));
-            };
-
-            const deleteRoom = (roomId) => {
-                if (!canEdit()) return;
-                setRooms(rooms.filter(r => r.id !== roomId));
-                setSnags(snags.filter(s => s.roomId !== roomId));
-                if (selectedRoom?.id === roomId) setSelectedRoom(null);
-            };
-
-            const addSnag = () => {
-                if (!canEdit() || !newSnagText.trim() || !selectedRoom) return;
-                const newSnag = {
-                    id: Date.now(),
-                    roomId: selectedRoom.id,
-                    text: newSnagText.trim(),
-                    completed: false,
-                    createdAt: new Date().toISOString(),
-                    photos: [],
-                    links: []
-                };
-                setSnags([...snags, newSnag]);
-                setNewSnagText('');
-            };
-
-            const toggleSnag = (snagId) => {
-                if (!canEdit()) return;
-                setSnags(snags.map(s => s.id === snagId ? { ...s, completed: !s.completed } : s));
-            };
-
-            const deleteSnag = (snagId) => {
-                if (!canEdit()) return;
-                setSnags(snags.filter(s => s.id !== snagId));
-            };
-
-            const startEditSnag = (snag) => {
-                if (!canEdit()) return;
-                setEditingSnag(snag.id);
-                setEditSnagText(snag.text);
-            };
-
-            const saveEditSnag = (snagId) => {
-                if (!canEdit() || !editSnagText.trim()) return;
-                setSnags(snags.map(s => s.id === snagId ? { ...s, text: editSnagText.trim() } : s));
-                setEditingSnag(null);
-                setEditSnagText('');
-            };
-
-            const cancelEditSnag = () => {
-                setEditingSnag(null);
-                setEditSnagText('');
-            };
-
-            const addPhoto = (snagId, file) => {
-                if (!canEdit() || !file || !file.type.startsWith('image/')) return;
-                const reader = new FileReader();
-                reader.onload = (e) => {
-                    const photoData = {
-                        id: Date.now(),
-                        data: e.target.result,
-                        name: file.name,
-                        addedAt: new Date().toISOString()
-                    };
-                    setSnags(snags.map(s => s.id === snagId ? { ...s, photos: [...(s.photos || []), photoData] } : s));
-                };
-                reader.readAsDataURL(file);
-            };
-
-            const deletePhoto = (snagId, photoId) => {
-                if (!canEdit()) return;
-                setSnags(snags.map(s => s.id === snagId ? { ...s, photos: s.photos.filter(p => p.id !== photoId) } : s));
-            };
-
-            const addLink = (snagId) => {
-                if (!canEdit() || !linkText.trim() || !linkUrl.trim()) return;
-                let url = linkUrl.trim();
-                if (!url.startsWith('http://') && !url.startsWith('https://')) {
-                    url = 'https://' + url;
-                }
-                const newLink = { id: Date.now(), text: linkText.trim(), url: url };
-                setSnags(snags.map(s => s.id === snagId ? { ...s, links: [...(s.links || []), newLink] } : s));
-                setEditingLink(null);
-                setLinkText('');
-                setLinkUrl('');
-            };
-
-            const deleteLink = (snagId, linkId) => {
-                if (!canEdit()) return;
-                setSnags(snags.map(s => s.id === snagId ? { ...s, links: (s.links || []).filter(l => l.id !== linkId) } : s));
-            };
-
-            const getRoomSnags = (roomId) => snags.filter(s => s.roomId === roomId);
-
-            const handleDragStart = (e, room) => {
-                if (!canEdit()) return;
-                setDraggedRoom(room);
-                e.dataTransfer.effectAllowed = 'move';
-            };
-
-            const handleDragOver = (e) => {
-                e.preventDefault();
-                e.dataTransfer.dropEffect = 'move';
-            };
-
-            const handleDrop = (e, targetRoom) => {
-                if (!canEdit()) return;
-                e.preventDefault();
-                if (!draggedRoom || draggedRoom.id === targetRoom.id) return;
-
-                const draggedIndex = rooms.findIndex(r => r.id === draggedRoom.id);
-                const targetIndex = rooms.findIndex(r => r.id === targetRoom.id);
-                const newRooms = [...rooms];
-                newRooms.splice(draggedIndex, 1);
-                newRooms.splice(targetIndex, 0, draggedRoom);
-                setRooms(newRooms);
-                setDraggedRoom(null);
-            };
-
-            const handleDragEnd = () => setDraggedRoom(null);
-
-            const downloadBackup = () => {
-                const data = { rooms, snags, savedDate: new Date().toISOString() };
-                const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = 'lodge-backup.json';
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
-                URL.revokeObjectURL(url);
-            };
-
-            const formatTime = (timestamp) => {
-                if (!timestamp) return '';
-                return new Date(timestamp).toLocaleTimeString();
-            };
-
-            const getStatusIndicator = () => {
-                if (!isSignedIn) {
-                    return (
-                        <div className="flex items-center gap-2 text-sm text-slate-600">
-                            <CloudOff size={16} />
-                            <span>Local Mode</span>
-                        </div>
-                    );
-                }
-
-                if (isSyncing) {
-                    return (
-                        <div className="flex items-center gap-2 text-sm text-blue-600">
-                            <Cloud size={16} className="animate-pulse" />
-                            <span>Syncing...</span>
-                        </div>
-                    );
-                }
-
-                if (!isOnline) {
-                    if (allowOfflineEdit) {
-                        return (
-                            <div className="flex items-center gap-2 text-sm text-orange-600">
-                                <Unlock size={16} />
-                                <span>Offline - Editing Enabled</span>
-                            </div>
-                        );
+                return () => {
+                    if (subscription) {
+                        supabaseClient.removeChannel(subscription);
                     }
-                    return (
-                        <div className="flex items-center gap-2 text-sm text-slate-600">
-                            <Lock size={16} />
-                            <span>Offline - Read Only</span>
-                        </div>
-                    );
+                };
+            }, [supabaseClient, fetchSnags]);
+
+
+            // --- STRUCTURE MANAGEMENT (PROJECTS & GROUPS) ---
+
+            const structureAction = (type, action, currentName = '', parentProject = '') => {
+                setModal({
+                    type: 'structure',
+                    actionType: action, // 'add', 'edit', 'delete'
+                    structureType: type, // 'project', 'group'
+                    currentName: currentName,
+                    parentProject: parentProject,
+                    
+                    handler: (newName) => {
+                        const newMap = JSON.parse(JSON.stringify(allGroupsMap));
+                        
+                        if (type === 'project') {
+                            if (action === 'add' && newName) {
+                                newMap[newName] = [];
+                            } else if (action === 'edit' && newName && newName !== currentName) {
+                                newMap[newName] = newMap[currentName] || [];
+                                delete newMap[currentName];
+                            } else if (action === 'delete') {
+                                delete newMap[currentName];
+                                // Force selection update on delete
+                                setSelectedProject('');
+                                setSelectedGroup('');
+                            }
+                        } else if (type === 'group' && parentProject) {
+                            let groups = newMap[parentProject] || [];
+                            
+                            if (action === 'add' && newName) {
+                                if (!groups.includes(newName)) groups.push(newName);
+                            } else if (action === 'edit' && newName && newName !== currentName) {
+                                const index = groups.indexOf(currentName);
+                                if (index !== -1) groups[index] = newName;
+                            } else if (action === 'delete') {
+                                newMap[parentProject] = groups.filter(s => s !== currentName);
+                                // Force group update on delete
+                                if (currentName === selectedGroup) {
+                                    setSelectedGroup('');
+                                }
+                            }
+                            // Sort for cleanliness
+                            newMap[parentProject].sort();
+                        }
+                        
+                        setAllGroupsMap(newMap);
+                        saveProjects(newMap);
+                        // Trigger re-fetch to update defaults and filters
+                        fetchSnags(supabaseClient); 
+                    }
+                });
+            };
+
+
+            // --- SUPABASE CRUD WRAPPERS ---
+            const addNewSnagToDB = async (snagData) => {
+                if (!supabaseClient) return setStatus('Connection not ready.');
+                
+                const { error } = await supabaseClient
+                    .from(TABLE_NAME)
+                    .insert([{ 
+                        ...snagData,
+                        status: 'open',
+                        created_at: new Date().toISOString(),
+                        photo_data: null, 
+                    }]);
+
+                if (error) {
+                    console.error("Error adding item:", error);
+                    setStatus(`Failed to add item: ${error.message}`);
+                } else {
+                    setNewSnagText('');
+                    setIsAddSnagModalOpen(false); // Close modal on success
+                    setStatus('Item added. Syncing...');
+                    // On mobile, automatically move to the item list view after adding
+                    if (!isDesktop) {
+                        setActivePanel('items');
+                    }
+                }
+            };
+
+            const updateSnagInDB = async (id, updates) => {
+                if (!supabaseClient) return setStatus('Connection not ready.');
+
+                const { error } = await supabaseClient
+                    .from(TABLE_NAME)
+                    .update({ 
+                        ...updates,
+                        updated_at: new Date().toISOString(),
+                    })
+                    .eq('id', id);
+
+                if (error) {
+                    console.error("Error updating item:", error);
+                    setStatus(`Failed to update item: ${error.message}`);
+                } else {
+                    setStatus('Item updated. Syncing...');
+                }
+            };
+
+            const deleteSnagFromDB = async (id) => {
+                if (!supabaseClient) return setStatus('Connection not ready.');
+
+                const { error } = await supabaseClient
+                    .from(TABLE_NAME)
+                    .delete()
+                    .eq('id', id);
+
+                if (error) {
+                    console.error("Error deleting item:", error);
+                    setStatus(`Failed to delete item: ${error.message}`);
+                } else {
+                    setStatus('Item deleted. Syncing...');
+                }
+            };
+
+
+            // --- NAVIGATION AND FILTERING ---
+
+            const handleProjectSelect = (project) => {
+                setSelectedProject(project);
+                // Reset group to the first group of the newly selected project
+                const newGroups = allGroupsMap[project] || [];
+                setSelectedGroup(newGroups[0] || '');
+                // On mobile, move to the groups panel
+                if (!isDesktop) {
+                    setActivePanel('groups');
+                }
+            };
+
+            const handleGroupSelect = (group) => {
+                setSelectedGroup(group);
+                // On mobile, move to the items panel
+                if (!isDesktop) {
+                    setActivePanel('items');
+                }
+            };
+
+            const navigateBack = (fromPanel) => {
+                if (!isDesktop) {
+                    if (fromPanel === 'items') {
+                        setActivePanel('groups');
+                    } else if (fromPanel === 'groups') {
+                        setActivePanel('projects');
+                    }
+                }
+            };
+
+            // Filtered snags based on current state
+            const filteredSnags = useMemo(() => {
+                // If either project or group is not set (e.g., on first load with no data), show nothing
+                if (!selectedProject || !selectedGroup) return [];
+
+                let filtered = snags;
+
+                // 1. Filter by Project (Category) - mandatory filter
+                filtered = filtered.filter(snag => (snag.header_category || 'Uncategorized') === selectedProject);
+                
+                // 2. Filter by Group (Subcategory/Location) - mandatory filter
+                filtered = filtered.filter(snag => (snag.room_name || 'N/A') === selectedGroup);
+                
+                // Sort: open items first, then by creation date
+                return filtered.sort((a, b) => {
+                    if (a.status === 'open' && b.status === 'closed') return -1;
+                    if (a.status === 'closed' && b.status === 'open') return 1;
+                    return new Date(b.created_at) - new Date(a.created_at);
+                });
+
+            }, [snags, selectedProject, selectedGroup]);
+
+            // Available groups depend on the currently selected project
+            const availableGroups = useMemo(() => {
+                // Show groups defined under the selected project
+                return selectedProject ? (allGroupsMap[selectedProject] || []) : [];
+            }, [selectedProject, allGroupsMap]);
+
+            // --- UI/STATE HANDLERS ---
+            
+            const injectLink = (markdownLink, target) => {
+                if (target === 'new') {
+                    setNewSnagText(prev => prev.trim() + ' ' + markdownLink + ' ');
+                } else if (target === 'edit') {
+                    setEditingSnagText(prev => prev.trim() + ' ' + markdownLink + ' ');
+                }
+                setLinkModal(null);
+            };
+
+            // NEW HANDLER FOR THE HEADER '+' BUTTON
+            const handleAddItemClick = () => {
+                // 1. Update the New Snag Modal form state to reflect the current view
+                if (selectedProject) {
+                    setNewProjectCategory(selectedProject);
+                    
+                    // Only set group if a group is actually selected
+                    if (selectedGroup) {
+                        setNewProjectGroup(selectedGroup);
+                    } else {
+                        // If no group is selected (but project is), default to the first group
+                        const defaultGroup = allGroupsMap[selectedProject]?.[0] || '';
+                        setNewProjectGroup(defaultGroup);
+                    }
+                }
+                // 2. Open the modal
+                setIsAddSnagModalOpen(true);
+            };
+
+
+            const addSnag = (e) => {
+                e.preventDefault();
+                const project = newProjectCategory.trim();
+                const group = newProjectGroup.trim();
+
+                if (!newSnagText.trim() || !project || !group) {
+                    setStatus('Error: Missing item text, project, or group.');
+                    return;
+                }
+
+                const newSnagData = {
+                    header_category: project, // Stored as category
+                    room_name: group,         // Stored as room_name
+                    text: newSnagText.trim(),
+                };
+                addNewSnagToDB(newSnagData);
+            };
+
+            const toggleSnagStatus = (snag) => {
+                const newStatus = snag.status === 'closed' ? 'open' : 'closed';
+                updateSnagInDB(snag.id, { status: newStatus });
+            };
+
+            const handleDeleteRequest = (snag) => {
+                setModal({
+                    type: 'confirm',
+                    message: `Are you sure you want to delete: "${snag.text.split('[')[0].trim()}..."? This action cannot be undone.`,
+                    action: () => deleteSnagFromDB(snag.id)
+                });
+            };
+            
+            const startEdit = (snag) => {
+                setEditingSnagId(snag.id);
+                setEditingSnagText(snag.text);
+                setEditingProjectCategory(snag.header_category);
+                setEditingProjectGroup(snag.room_name);
+            }
+            
+            const saveEdit = (id) => {
+                updateSnagInDB(id, { 
+                    text: editingSnagText.trim(), 
+                    header_category: editingProjectCategory.trim() || selectedProject,
+                    room_name: editingProjectGroup.trim() || selectedGroup,
+                });
+                setEditingSnagId(null);
+                setEditingSnagText('');
+            }
+
+
+            // --- MODAL COMPONENTS ---
+
+            const AddSnagModal = ({ isOpen, onClose }) => {
+                if (!isOpen) return null;
+
+                const allProjs = Object.keys(allGroupsMap).sort();
+                const availableGroupsForProject = allGroupsMap[newProjectCategory] || [];
+                const canSubmit = newSnagText.trim() && newProjectCategory && newProjectGroup;
+
+                const handleLinkClick = (e) => {
+                    e.preventDefault();
+                    setLinkModal({ type: 'link', target: 'new' });
+                };
+
+                const closeHandler = () => {
+                    setNewSnagText(''); // Clear text on close
+                    onClose();
                 }
 
                 return (
-                    <div className="flex items-center gap-2 text-sm text-green-600">
-                        <Cloud size={16} />
-                        <span>Online{lastSyncTime && ` - ${formatTime(lastSyncTime)}`}</span>
+                    <div className="modal" onClick={closeHandler}>
+                        <form className="modal-content" onClick={(e) => e.stopPropagation()} onSubmit={addSnag}>
+                            <div className="flex items-center justify-between mb-4 border-b pb-3 border-slate-100">
+                                <h3 className="text-xl font-bold text-slate-800 flex items-center"><Plus className="w-5 h-5 mr-2 text-accent"/> Add New Project Item</h3>
+                                <button type="button" onClick={closeHandler} className="p-1 text-slate-500 hover:text-slate-800 rounded-full"><X className="w-5 h-5" /></button>
+                            </div>
+                            
+                            {/* Project and Room Selectors */}
+                            <div className="flex space-x-3 mb-4">
+                                <select
+                                    value={newProjectCategory}
+                                    onChange={(e) => {
+                                        setNewProjectCategory(e.target.value);
+                                        // Auto-select first group/room of the newly chosen project
+                                        const newGroups = allGroupsMap[e.target.value] || [];
+                                        setNewProjectGroup(newGroups[0] || '');
+                                    }}
+                                    className="w-1/2 p-3 border border-slate-300 rounded-xl text-base bg-white focus:outline-none focus:ring-2 focus:ring-primary"
+                                    required
+                                >
+                                    <option value="" disabled>Select Project</option>
+                                    {allProjs.map(proj => (
+                                        <option key={proj} value={proj}>{proj}</option>
+                                    ))}
+                                </select>
+                                <select
+                                    value={newProjectGroup}
+                                    onChange={(e) => setNewProjectGroup(e.target.value)}
+                                    className="w-1/2 p-3 border border-slate-300 rounded-xl text-base bg-white focus:outline-none focus:ring-2 focus:ring-accent"
+                                    required
+                                    disabled={!newProjectCategory || availableGroupsForProject.length === 0}
+                                >
+                                    <option value="" disabled>Select Room</option>
+                                    {availableGroupsForProject.map(group => (
+                                        <option key={group} value={group}>{group}</option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            {/* Item Text Area */}
+                            <label className="block text-sm font-medium text-slate-700 mb-1">Item Details</label>
+                            <textarea
+                                rows="3"
+                                placeholder="Enter item details (supports [link text](url))"
+                                value={newSnagText}
+                                onChange={(e) => setNewSnagText(e.target.value)}
+                                className="w-full p-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary mb-6 text-base"
+                                required
+                            />
+
+                            <div className="flex justify-between items-center">
+                                <button
+                                    type="button"
+                                    onClick={handleLinkClick}
+                                    className="px-3 py-2 bg-blue-500 hover:bg-blue-600 text-white font-semibold rounded-xl text-sm flex items-center shadow-sm"
+                                    title="Add a clickable link to the snag text"
+                                >
+                                    <LinkIcon className="w-4 h-4 mr-1" /> Embed Link
+                                </button>
+                                <button
+                                    type="submit"
+                                    className="px-6 py-2.5 bg-accent text-white font-bold rounded-xl shadow-md hover:bg-green-600 transition disabled:opacity-50"
+                                    disabled={!canSubmit || !supabaseClient}
+                                >
+                                    Submit Item
+                                </button>
+                            </div>
+                        </form>
                     </div>
                 );
             };
 
-            return (
-                <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-4">
-                    <div className="max-w-6xl mx-auto">
-                        <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
-                            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
-                                <div>
-                                    <div className="flex items-baseline gap-3">
-                                        <h1 className="text-3xl font-bold text-slate-800">Lodge Build Tracker</h1>
-                                        <span className="text-sm text-slate-400">v2.3</span>
-                                    </div>
-                                    <div className="mt-2">{getStatusIndicator()}</div>
-                                </div>
-                                
-                                <div className="flex flex-wrap gap-2">
-                                    {!isSignedIn ? (
-                                        <button
-                                            onClick={handleSignIn}
-                                            disabled={!gapiReady}
-                                            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition disabled:opacity-50"
-                                        >
-                                            <Cloud size={18} />
-                                            Sign in with Google
-                                        </button>
-                                    ) : (
-                                        <>
-                                            <button
-                                                onClick={downloadBackup}
-                                                className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition"
-                                            >
-                                                <Download size={18} />
-                                                <span className="hidden sm:inline">Backup</span>
-                                            </button>
-                                            <button
-                                                onClick={handleSignOut}
-                                                className="flex items-center gap-2 px-4 py-2 bg-slate-600 text-white rounded-lg hover:bg-slate-700 transition"
-                                            >
-                                                Sign Out
-                                            </button>
-                                        </>
-                                    )}
-                                </div>
-                            </div>
-                            
-                            {isSignedIn && !isOnline && !allowOfflineEdit && (
-                                <div className="bg-orange-50 border border-orange-200 rounded-lg p-3 mb-4">
-                                    <div className="flex items-center justify-between">
-                                        <span className="text-sm text-orange-800">
-                                            ⚠️ Offline - Viewing only. Enable editing if you're working solo.
-                                        </span>
-                                        <button
-                                            onClick={() => setAllowOfflineEdit(true)}
-                                            className="flex items-center gap-1 px-3 py-1 bg-orange-600 text-white text-sm rounded hover:bg-orange-700 transition"
-                                        >
-                                            <Unlock size={14} />
-                                            Allow Editing
-                                        </button>
-                                    </div>
-                                </div>
-                            )}
-                            
-                            {isSignedIn && !isOnline && allowOfflineEdit && (
-                                <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4">
-                                    <div className="flex items-center justify-between">
-                                        <span className="text-sm text-red-800">
-                                            ⚠️ Offline editing enabled - Changes will sync when back online
-                                        </span>
-                                        <button
-                                            onClick={() => setAllowOfflineEdit(false)}
-                                            className="flex items-center gap-1 px-3 py-1 bg-red-600 text-white text-sm rounded hover:bg-red-700 transition"
-                                        >
-                                            <Lock size={14} />
-                                            Disable
-                                        </button>
-                                    </div>
-                                </div>
-                            )}
-                        </div>
+            const CustomModal = ({ modal, closeModal }) => {
+                if (!modal) return null;
 
-                        <div className="grid md:grid-cols-3 gap-6">
-                            <div className="bg-white rounded-lg shadow-lg p-6">
-                                <div className="flex justify-between items-center mb-4">
-                                    <h2 className="text-xl font-bold text-slate-800">Rooms</h2>
+                const handleAction = () => {
+                    modal.action();
+                    setModal(null); // Use setModal(null) here instead of closeModal to avoid calling it multiple times
+                };
+
+                // Confirmation Modal
+                if (modal.type === 'confirm') {
+                    return (
+                        <div className="modal" onClick={closeModal}>
+                            <div className="modal-content transform transition-all" onClick={(e) => e.stopPropagation()}>
+                                <div className="flex items-center space-x-3 mb-4 border-b pb-3 border-slate-100">
+                                    <Trash className="w-6 h-6 text-red-500"/>
+                                    <h3 className="text-xl font-bold text-slate-800">Confirm Deletion</h3>
+                                </div>
+                                <p className="text-slate-600 mb-8">{modal.message}</p>
+                                <div className="flex justify-end space-x-3">
                                     <button
-                                        onClick={() => canEdit() && setShowAddRoom(!showAddRoom)}
-                                        disabled={!canEdit()}
-                                        className="flex items-center gap-1 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                                        onClick={closeModal}
+                                        className="px-6 py-2.5 bg-slate-100 text-slate-700 font-semibold rounded-xl hover:bg-slate-200 transition shadow-sm"
                                     >
-                                        <Home size={18} />
-                                        <Plus size={18} />
+                                        Cancel
+                                    </button>
+                                    <button
+                                        onClick={handleAction}
+                                        className="px-6 py-2.5 bg-red-600 text-white font-semibold rounded-xl hover:bg-red-700 transition shadow-md"
+                                    >
+                                        Delete Item
                                     </button>
                                 </div>
-
-                                {showAddRoom && (
-                                    <div className="mb-4 flex gap-2">
-                                        <input
-                                            type="text"
-                                            value={newRoomName}
-                                            onChange={(e) => setNewRoomName(e.target.value)}
-                                            onKeyPress={(e) => e.key === 'Enter' && addRoom()}
-                                            placeholder="Room name..."
-                                            className="flex-1 px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                        />
-                                        <button
-                                            onClick={addRoom}
-                                            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition"
-                                        >
-                                            Add
-                                        </button>
-                                    </div>
-                                )}
-
-                                <div className="space-y-2">
-                                    {rooms.map(room => {
-                                        const roomSnagCount = getRoomSnags(room.id).length;
-                                        const roomPendingCount = getRoomSnags(room.id).filter(s => !s.completed).length;
-                                        const isSelected = selectedRoom?.id === room.id;
-                                        const roomSnags = isSelected ? getRoomSnags(room.id) : [];
-                                        const pendingSnags = roomSnags.filter(s => !s.completed);
-                                        const completedSnags = roomSnags.filter(s => s.completed);
-                                        
-                                        return (
-                                            <div key={room.id}>
-                                                <div
-                                                    draggable={canEdit()}
-                                                    onDragStart={(e) => handleDragStart(e, room)}
-                                                    onDragOver={handleDragOver}
-                                                    onDrop={(e) => handleDrop(e, room)}
-                                                    onDragEnd={handleDragEnd}
-                                                    className={`p-3 rounded-lg cursor-pointer transition ${
-                                                        isSelected
-                                                            ? 'bg-blue-100 border-2 border-blue-500'
-                                                            : 'bg-slate-50 hover:bg-slate-100 border-2 border-transparent'
-                                                    } ${draggedRoom?.id === room.id ? 'opacity-50' : ''}`}
-                                                    onClick={() => setSelectedRoom(room)}
-                                                >
-                                                    <div className="flex justify-between items-center gap-2">
-                                                        <div className="flex items-center gap-2 flex-1">
-                                                            {room.thumbnail ? (
-                                                                <div className="relative group flex-shrink-0">
-                                                                    <img 
-                                                                        src={room.thumbnail} 
-                                                                        alt={room.name}
-                                                                        className="w-12 h-12 object-cover rounded border-2 border-slate-300"
-                                                                    />
-                                                                    {canEdit() && (
-                                                                        <button
-                                                                            onClick={(e) => {
-                                                                                e.stopPropagation();
-                                                                                deleteRoomThumbnail(room.id);
-                                                                            }}
-                                                                            className="absolute -top-1 -right-1 p-0.5 bg-red-600 text-white rounded-full opacity-0 group-hover:opacity-100 transition"
-                                                                        >
-                                                                            <X size={10} />
-                                                                        </button>
-                                                                    )}
-                                                                </div>
-                                                            ) : (
-                                                                canEdit() && (
-                                                                    <label 
-                                                                        onClick={(e) => e.stopPropagation()}
-                                                                        className="w-12 h-12 flex items-center justify-center bg-slate-200 rounded border-2 border-dashed border-slate-400 hover:bg-slate-300 cursor-pointer flex-shrink-0"
-                                                                    >
-                                                                        <Camera size={20} className="text-slate-500" />
-                                                                        <input 
-                                                                            type="file" 
-                                                                            accept="image/*"
-                                                                            onChange={(e) => e.target.files[0] && addRoomThumbnail(room.id, e.target.files[0])}
-                                                                            className="hidden" 
-                                                                        />
-                                                                    </label>
-                                                                )
-                                                            )}
-                                                            <div>
-                                                                <div className="font-semibold text-slate-800">{room.name}</div>
-                                                                <div className="text-sm text-slate-600">
-                                                                    {roomPendingCount > 0 ? (
-                                                                        <span className="text-orange-600">{roomPendingCount} pending</span>
-                                                                    ) : roomSnagCount > 0 ? (
-                                                                        <span className="text-green-600">All complete</span>
-                                                                    ) : (
-                                                                        <span className="text-slate-400">No snags</span>
-                                                                    )}
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                        {canEdit() && (
-                                                            <button
-                                                                onClick={(e) => {
-                                                                    e.stopPropagation();
-                                                                    if (confirm(`Delete ${room.name}?`)) deleteRoom(room.id);
-                                                                }}
-                                                                className="p-1 text-red-600 hover:bg-red-100 rounded transition flex-shrink-0"
-                                                            >
-                                                                <Trash2 size={18} />
-                                                            </button>
-                                                        )}
-                                                    </div>
-                                                </div>
-
-                                                {isSelected && (
-                                                    <div className="ml-4 mt-2 space-y-2">
-                                                        {canEdit() && (
-                                                            <div className="flex gap-2">
-                                                                <input
-                                                                    type="text"
-                                                                    value={newSnagText}
-                                                                    onChange={(e) => setNewSnagText(e.target.value)}
-                                                                    onKeyPress={(e) => e.key === 'Enter' && addSnag()}
-                                                                    placeholder="Add a snag..."
-                                                                    className="flex-1 px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                                                />
-                                                                <button
-                                                                    onClick={addSnag}
-                                                                    className="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition font-semibold"
-                                                                >
-                                                                    Add
-                                                                </button>
-                                                            </div>
-                                                        )}
-
-                                                        {pendingSnags.map(snag => (
-                                                            <div key={snag.id} className="p-2 bg-orange-50 border border-orange-200 rounded-lg text-sm">
-                                                                <div className="flex items-start gap-2 mb-1">
-                                                                    <button
-                                                                        onClick={() => toggleSnag(snag.id)}
-                                                                        disabled={!canEdit()}
-                                                                        className="mt-0.5 p-1 border-2 border-slate-300 rounded hover:bg-green-100 hover:border-green-500 transition flex-shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
-                                                                    >
-                                                                        <Check size={12} className="text-transparent" />
-                                                                    </button>
-                                                                    {editingSnag === snag.id ? (
-                                                                        <div className="flex-1 flex gap-1">
-                                                                            <input
-                                                                                type="text"
-                                                                                value={editSnagText}
-                                                                                onChange={(e) => setEditSnagText(e.target.value)}
-                                                                                onKeyPress={(e) => {
-                                                                                    if (e.key === 'Enter') saveEditSnag(snag.id);
-                                                                                    if (e.key === 'Escape') cancelEditSnag();
-                                                                                }}
-                                                                                className="flex-1 px-2 py-1 text-sm border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                                                                autoFocus
-                                                                            />
-                                                                            <button
-                                                                                onClick={() => saveEditSnag(snag.id)}
-                                                                                className="p-1 bg-green-600 text-white rounded hover:bg-green-700 transition"
-                                                                            >
-                                                                                <Check size={14} />
-                                                                            </button>
-                                                                            <button
-                                                                                onClick={cancelEditSnag}
-                                                                                className="p-1 bg-slate-400 text-white rounded hover:bg-slate-500 transition"
-                                                                            >
-                                                                                <X size={14} />
-                                                                            </button>
-                                                                        </div>
-                                                                    ) : (
-                                                                        <div className="flex-1 text-slate-800">{snag.text}</div>
-                                                                    )}
-                                                                    {editingSnag !== snag.id && canEdit() && (
-                                                                        <>
-                                                                            <button
-                                                                                onClick={() => startEditSnag(snag)}
-                                                                                className="p-1 text-blue-600 hover:bg-blue-100 rounded transition flex-shrink-0"
-                                                                            >
-                                                                                <Edit size={14} />
-                                                                            </button>
-                                                                            <button
-                                                                                onClick={() => deleteSnag(snag.id)}
-                                                                                className="p-1 text-red-600 hover:bg-red-100 rounded transition flex-shrink-0"
-                                                                            >
-                                                                                <Trash2 size={14} />
-                                                                            </button>
-                                                                        </>
-                                                                    )}
-                                                                </div>
-                                                                
-                                                                {snag.photos && snag.photos.length > 0 && (
-                                                                    <div className="flex flex-wrap gap-1 mb-1 ml-6">
-                                                                        {snag.photos.map(photo => (
-                                                                            <div key={photo.id} className="relative group">
-                                                                                <img 
-                                                                                    src={photo.data} 
-                                                                                    alt="Snag photo"
-                                                                                    className="w-16 h-16 object-cover rounded border border-slate-200 cursor-pointer hover:border-blue-500 transition"
-                                                                                    onClick={() => setViewingPhoto(photo)}
-                                                                                />
-                                                                                {canEdit() && (
-                                                                                    <button
-                                                                                        onClick={() => deletePhoto(snag.id, photo.id)}
-                                                                                        className="absolute -top-1 -right-1 p-0.5 bg-red-600 text-white rounded-full opacity-0 group-hover:opacity-100 transition"
-                                                                                    >
-                                                                                        <X size={10} />
-                                                                                    </button>
-                                                                                )}
-                                                                            </div>
-                                                                        ))}
-                                                                    </div>
-                                                                )}
-                                                                
-                                                                {snag.links && snag.links.length > 0 && (
-                                                                    <div className="flex flex-wrap gap-2 mb-1 ml-6">
-                                                                        {snag.links.map(link => (
-                                                                            <div key={link.id} className="flex items-center gap-1 bg-blue-50 border border-blue-300 rounded px-2 py-1">
-                                                                                <a 
-                                                                                    href={link.url} 
-                                                                                    target="_blank" 
-                                                                                    rel="noopener noreferrer"
-                                                                                    className="text-blue-600 hover:text-blue-800 underline text-xs"
-                                                                                >
-                                                                                    {link.text}
-                                                                                </a>
-                                                                                {canEdit() && (
-                                                                                    <button
-                                                                                        onClick={() => deleteLink(snag.id, link.id)}
-                                                                                        className="text-red-600 hover:text-red-800"
-                                                                                    >
-                                                                                        <X size={12} />
-                                                                                    </button>
-                                                                                )}
-                                                                            </div>
-                                                                        ))}
-                                                                    </div>
-                                                                )}
-                                                                
-                                                                {canEdit() && (
-                                                                    <div className="ml-6 flex gap-1">
-                                                                        <label className="inline-flex items-center gap-1 px-2 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 transition cursor-pointer">
-                                                                            <Camera size={12} />
-                                                                            Photo
-                                                                            <input 
-                                                                                type="file" 
-                                                                                accept="image/*" 
-                                                                                capture="environment"
-                                                                                onChange={(e) => e.target.files[0] && addPhoto(snag.id, e.target.files[0])}
-                                                                                className="hidden" 
-                                                                            />
-                                                                        </label>
-                                                                        
-                                                                        {editingLink === snag.id ? (
-                                                                            <div className="flex gap-1 items-center">
-                                                                                <input
-                                                                                    type="text"
-                                                                                    value={linkText}
-                                                                                    onChange={(e) => setLinkText(e.target.value)}
-                                                                                    placeholder="Text..."
-                                                                                    className="px-2 py-1 text-xs border border-slate-300 rounded w-20"
-                                                                                />
-                                                                                <input
-                                                                                    type="text"
-                                                                                    value={linkUrl}
-                                                                                    onChange={(e) => setLinkUrl(e.target.value)}
-                                                                                    placeholder="URL..."
-                                                                                    className="px-2 py-1 text-xs border border-slate-300 rounded w-24"
-                                                                                />
-                                                                                <button
-                                                                                    onClick={() => addLink(snag.id)}
-                                                                                    className="px-2 py-1 bg-green-600 text-white text-xs rounded hover:bg-green-700"
-                                                                                >
-                                                                                    ✓
-                                                                                </button>
-                                                                                <button
-                                                                                    onClick={() => {
-                                                                                        setEditingLink(null);
-                                                                                        setLinkText('');
-                                                                                        setLinkUrl('');
-                                                                                    }}
-                                                                                    className="px-2 py-1 bg-slate-400 text-white text-xs rounded hover:bg-slate-500"
-                                                                                >
-                                                                                    ✕
-                                                                                </button>
-                                                                            </div>
-                                                                        ) : (
-                                                                            <button
-                                                                                onClick={() => setEditingLink(snag.id)}
-                                                                                className="inline-flex items-center gap-1 px-2 py-1 bg-purple-600 text-white text-xs rounded hover:bg-purple-700 transition"
-                                                                            >
-                                                                                🔗 Link
-                                                                            </button>
-                                                                        )}
-                                                                    </div>
-                                                                )}
-                                                            </div>
-                                                        ))}
-
-                                                        {completedSnags.map(snag => (
-                                                            <div key={snag.id} className="p-2 bg-green-50 border border-green-200 rounded-lg text-sm">
-                                                                <div className="flex items-start gap-2 mb-1">
-                                                                    <button
-                                                                        onClick={() => toggleSnag(snag.id)}
-                                                                        disabled={!canEdit()}
-                                                                        className="mt-0.5 p-1 bg-green-500 border-2 border-green-500 rounded hover:bg-green-600 transition flex-shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
-                                                                    >
-                                                                        <Check size={12} className="text-white" />
-                                                                    </button>
-                                                                    <div className="flex-1 text-slate-600 line-through">{snag.text}</div>
-                                                                    {canEdit() && (
-                                                                        <button
-                                                                            onClick={() => deleteSnag(snag.id)}
-                                                                            className="p-1 text-red-600 hover:bg-red-100 rounded transition flex-shrink-0"
-                                                                        >
-                                                                            <Trash2 size={14} />
-                                                                        </button>
-                                                                    )}
-                                                                </div>
-                                                                
-                                                                {snag.photos && snag.photos.length > 0 && (
-                                                                    <div className="flex flex-wrap gap-1 ml-6">
-                                                                        {snag.photos.map(photo => (
-                                                                            <img 
-                                                                                key={photo.id}
-                                                                                src={photo.data} 
-                                                                                alt="Snag photo"
-                                                                                className="w-16 h-16 object-cover rounded border border-slate-200 cursor-pointer hover:border-blue-500 transition opacity-60"
-                                                                                onClick={() => setViewingPhoto(photo)}
-                                                                            />
-                                                                        ))}
-                                                                    </div>
-                                                                )}
-                                                                
-                                                                {snag.links && snag.links.length > 0 && (
-                                                                    <div className="flex flex-wrap gap-2 ml-6">
-                                                                        {snag.links.map(link => (
-                                                                            <a 
-                                                                                key={link.id}
-                                                                                href={link.url} 
-                                                                                target="_blank" 
-                                                                                rel="noopener noreferrer"
-                                                                                className="text-blue-600 hover:text-blue-800 underline text-xs bg-blue-50 border border-blue-300 rounded px-2 py-1"
-                                                                            >
-                                                                                {link.text}
-                                                                            </a>
-                                                                        ))}
-                                                                    </div>
-                                                                )}
-                                                            </div>
-                                                        ))}
-
-                                                        {roomSnags.length === 0 && (
-                                                            <div className="text-center py-4 text-slate-400 text-xs">
-                                                                No snags yet
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                )}
-                                            </div>
-                                        );
-                                    })}
-                                </div>
                             </div>
+                        </div>
+                    );
+                }
 
-                            <div className="md:col-span-2 bg-white rounded-lg shadow-lg p-6">
-                                <div className="text-center py-12 text-slate-400">
-                                    <h2 className="text-2xl font-bold text-slate-700 mb-4">How to Use v2.0</h2>
-                                    <div className="text-left max-w-md mx-auto space-y-3 text-sm text-slate-600">
-                                        <p>✓ Sign in with Google for cloud sync</p>
-                                        <p>✓ Data syncs automatically across devices</p>
-                                        <p>✓ Works offline (read-only by default)</p>
-                                        <p>✓ Enable offline editing when working solo</p>
-                                        <p>✓ Click rooms to expand and add snags</p>
-                                        <p>✓ Edit snags with the pencil icon</p>
-                                        <p>✓ Attach photos and links to snags</p>
-                                        <p>✓ Download manual backup anytime</p>
-                                        <p className="text-blue-600 font-semibold mt-4">☁️ One file, all devices in sync!</p>
-                                    </div>
+                // Structure Management Modal (Add/Edit Project/Group)
+                if (modal.type === 'structure') {
+                    const [inputValue, setInputValue] = useState(modal.currentName || '');
+                    const isAdd = modal.actionType === 'add';
+                    // Use 'Room' for groups, otherwise use 'Project'
+                    const structureName = modal.structureType === 'group' ? 'Room' : 'Project';
+                    const title = isAdd ? `Add New ${structureName}` : `Rename ${structureName}`;
+                    const icon = isAdd ? Plus : Edit;
+                    const actionButtonText = isAdd ? 'Add' : 'Save';
+
+                    const handleSubmit = (e) => {
+                        e.preventDefault();
+                        if (inputValue.trim()) {
+                            modal.handler(inputValue.trim());
+                            closeModal();
+                        }
+                    };
+
+                    return (
+                        <div className="modal" onClick={closeModal}>
+                            <form className="modal-content" onClick={(e) => e.stopPropagation()} onSubmit={handleSubmit}>
+                                <div className="flex items-center space-x-3 mb-4 border-b pb-3 border-slate-100">
+                                    {icon({ className: "w-6 h-6 text-primary" })}
+                                    <h3 className="text-xl font-bold text-slate-800">{title}</h3>
                                 </div>
+                                
+                                <label className="block text-sm font-medium text-slate-700 mb-1">Name</label>
+                                <input
+                                    type="text"
+                                    placeholder={`Enter new ${structureName.toLowerCase()} name...`}
+                                    value={inputValue}
+                                    onChange={(e) => setInputValue(e.target.value)}
+                                    className="w-full p-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary mb-6"
+                                    required
+                                />
+
+                                <div className="flex justify-end space-x-3">
+                                    <button
+                                        type="button"
+                                        onClick={closeModal}
+                                        className="px-6 py-2.5 bg-slate-100 text-slate-700 font-semibold rounded-xl hover:bg-slate-200 transition shadow-sm"
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button
+                                        type="submit"
+                                        className="px-6 py-2.5 bg-primary text-white font-semibold rounded-xl hover:bg-blue-900 transition shadow-md disabled:opacity-50"
+                                        disabled={!inputValue.trim()}
+                                    >
+                                        {actionButtonText}
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    );
+                }
+
+                // Link Modal
+                if (modal.type === 'link') {
+                    const [linkText, setLinkText] = useState('');
+                    const [linkUrl, setLinkUrl] = useState('');
+
+                    const handleSubmit = (e) => {
+                        e.preventDefault();
+                        if (linkText.trim() && linkUrl.trim()) {
+                            const markdownLink = `[${linkText.trim()}](${linkUrl.trim()})`;
+                            injectLink(markdownLink, linkModal.target);
+                        }
+                    };
+
+                    return (
+                        <div className="modal" onClick={closeModal}>
+                            <form className="modal-content" onClick={(e) => e.stopPropagation()} onSubmit={handleSubmit}>
+                                <div className="flex items-center space-x-3 mb-4 border-b pb-3 border-slate-100">
+                                    <LinkIcon className="w-6 h-6 text-primary"/>
+                                    <h3 className="text-xl font-bold text-slate-800">Embed Link</h3>
+                                </div>
+                                
+                                <label className="block text-sm font-medium text-slate-700 mb-1">Link Text</label>
+                                <input
+                                    type="text"
+                                    placeholder="e.g., replacement sink on Amazon"
+                                    value={linkText}
+                                    onChange={(e) => setLinkText(e.target.value)}
+                                    className="w-full p-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary mb-4"
+                                    required
+                                />
+
+                                <label className="block text-sm font-medium text-slate-700 mb-1">Full URL</label>
+                                <input
+                                    type="url"
+                                    placeholder="e.g., https://www.amazon.com/sink-model-xyz"
+                                    value={linkUrl}
+                                    onChange={(e) => setLinkUrl(e.target.value)}
+                                    className="w-full p-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary mb-6"
+                                    required
+                                />
+
+                                <div className="flex justify-end space-x-3">
+                                    <button
+                                        type="button"
+                                        onClick={closeModal}
+                                        className="px-6 py-2.5 bg-slate-100 text-slate-700 font-semibold rounded-xl hover:bg-slate-200 transition shadow-sm"
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button
+                                        type="submit"
+                                        className="px-6 py-2.5 bg-primary text-white font-semibold rounded-xl hover:bg-blue-900 transition shadow-md disabled:opacity-50"
+                                        disabled={!linkText.trim() || !linkUrl.trim()}
+                                    >
+                                        Insert Link
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    );
+                }
+
+                return null;
+            };
+
+            // --- SNAG ITEM COMPONENT ---
+            const SnagItem = ({ snag }) => {
+                const isEditing = editingSnagId === snag.id;
+
+                const statusColor = snag.status === 'closed' ? 'bg-status-closed/10 text-status-closed border-status-closed' : 'bg-status-open/10 text-status-open border-status-open';
+                const buttonBg = snag.status === 'closed' ? 'bg-status-closed hover:bg-green-600' : 'bg-status-open hover:bg-amber-600';
+                
+                const timeAgo = (dateString) => {
+                    const seconds = Math.floor((new Date() - new Date(dateString)) / 1000);
+                    let interval = seconds / 31536000;
+                    if (interval > 1) return Math.floor(interval) + "y ago";
+                    interval = seconds / 2592000;
+                    if (interval > 1) return Math.floor(interval) + "m ago";
+                    interval = seconds / 86400;
+                    if (interval > 1) return Math.floor(interval) + "d ago";
+                    interval = seconds / 3600;
+                    if (interval > 1) return Math.floor(interval) + "h ago";
+                    interval = seconds / 60;
+                    if (interval > 1) return Math.floor(interval) + "min ago";
+                    return "just now";
+                }
+
+                const handlePhotoUpload = (event) => {
+                    const file = event.target.files[0];
+                    if (!file) return;
+                    
+                    // Supabase has a 4MB limit on text/json fields. Base64 can grow large, so check size.
+                    if (file.size > 3 * 1024 * 1024) { // Roughly 3MB limit for safety
+                        setStatus('Error: Photo file is too large (max 3MB recommended for direct storage).');
+                        // Clear the input file list to allow uploading again
+                        event.target.value = null; 
+                        return;
+                    }
+
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        updateSnagInDB(snag.id, { photo_data: e.target.result });
+                    };
+                    reader.readAsDataURL(file);
+                };
+
+                return (
+                    <div className="snag-card p-4 rounded-xl bg-white border border-slate-200 transition duration-300 mb-4">
+                        
+                        {/* Tags and Status */}
+                        <div className="flex items-center justify-between mb-2">
+                            <div className="flex flex-wrap items-center gap-2">
+                                <span className="text-xs font-bold uppercase tracking-wider text-slate-600 bg-slate-100 px-2 py-0.5 rounded-full">
+                                    {snag.header_category || 'N/A'} / {snag.room_name || 'N/A'}
+                                </span>
+                                <span className={`text-xs font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border ${statusColor}`}>
+                                    {snag.status === 'open' ? 'OPEN' : 'COMPLETED'}
+                                </span>
+                            </div>
+                            <span className="text-xs text-slate-400">{timeAgo(snag.created_at)}</span>
+                        </div>
+
+                        {/* Snag Text / Edit Area with Thumbnail */}
+                        <div className="pb-3 border-b border-slate-100 mb-3 flex space-x-4 items-start">
+                            {/* NEW: Thumbnail display */}
+                            {snag.photo_data && !isEditing && (
+                                <img 
+                                    src={snag.photo_data} 
+                                    alt="Thumbnail" 
+                                    className="w-16 h-16 object-cover rounded-xl shadow-md flex-shrink-0 cursor-pointer" 
+                                    onClick={() => setViewingPhoto({ data: snag.photo_data, text: snag.text })}
+                                    title="View Photo"
+                                />
+                            )}
+                            
+                            <div className="flex-grow">
+                                {isEditing ? (
+                                    <>
+                                        <textarea
+                                            rows="3"
+                                            value={editingSnagText}
+                                            onChange={(e) => setEditingSnagText(e.target.value)}
+                                            className="w-full text-lg font-medium p-3 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary mb-3"
+                                            placeholder="Enter item detail..."
+                                        />
+                                        <div className="flex flex-wrap space-x-2">
+                                            <input
+                                                type="text"
+                                                value={editingProjectCategory}
+                                                onChange={(e) => setEditingProjectCategory(e.target.value)}
+                                                placeholder="Edit Project"
+                                                className="text-sm p-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-primary w-24"
+                                            />
+                                            <input
+                                                type="text"
+                                                value={editingProjectGroup}
+                                                onChange={(e) => setEditingProjectGroup(e.target.value)}
+                                                placeholder="Edit Room"
+                                                className="text-sm p-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-primary w-28"
+                                            />
+                                            <button
+                                                type="button"
+                                                onClick={() => setLinkModal({ type: 'link', target: 'edit' })}
+                                                className="p-2 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-lg transition text-sm flex items-center shadow-sm"
+                                                title="Add a clickable link"
+                                            >
+                                                <LinkIcon className="w-4 h-4" />
+                                            </button>
+                                        </div>
+                                    </>
+                                ) : (
+                                    <p 
+                                        className={`snag-description text-lg font-semibold break-words ${snag.status === 'closed' ? 'text-slate-500 line-through' : 'text-slate-800'}`}
+                                        dangerouslySetInnerHTML={renderMarkdownLinks(snag.text)}
+                                    />
+                                )}
+                            </div>
+                        </div>
+                        
+                        {/* Action Buttons */}
+                        <div className="flex items-center justify-between">
+                            <div className="flex space-x-3">
+                                {!isEditing && (
+                                    <label htmlFor={`photo-upload-${snag.id}`} className="cursor-pointer text-slate-600 hover:text-slate-800 text-sm font-semibold flex items-center p-1 rounded-full bg-slate-100 hover:bg-slate-200 transition">
+                                        <Camera className="w-4 h-4 mr-1" /> {snag.photo_data ? 'Replace Photo' : 'Add Photo'}
+                                        <input 
+                                            id={`photo-upload-${snag.id}`} 
+                                            type="file" 
+                                            accept="image/*" 
+                                            className="hidden" 
+                                            onChange={handlePhotoUpload}
+                                        />
+                                    </label>
+                                )}
+                            </div>
+                            
+                            <div className="flex items-center space-x-2">
+                                {isEditing ? (
+                                    <button 
+                                        onClick={() => saveEdit(snag.id)}
+                                        className="p-2 bg-primary hover:bg-blue-900 text-white rounded-full transition shadow-md"
+                                        title="Save Edit"
+                                    >
+                                        <Check className="w-5 h-5" />
+                                    </button>
+                                ) : (
+                                    <button 
+                                        onClick={() => startEdit(snag)}
+                                        className="p-2 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-full transition shadow-sm"
+                                        title="Edit Item"
+                                    >
+                                        <Edit className="w-5 h-5" />
+                                    </button>
+                                )}
+                                
+                                <button 
+                                    onClick={() => toggleSnagStatus(snag)}
+                                    className={`p-2 rounded-full transition shadow-md ${buttonBg} text-white`}
+                                    title={snag.status === 'open' ? 'Mark Complete' : 'Mark Open'}
+                                >
+                                    <Check className="w-5 h-5" />
+                                </button>
+                                <button 
+                                    onClick={() => handleDeleteRequest(snag)}
+                                    className="p-2 bg-red-600 hover:bg-red-700 text-white rounded-full transition shadow-md"
+                                    title="Delete Item"
+                                >
+                                    <Trash className="w-5 h-5" />
+                                </button>
                             </div>
                         </div>
                     </div>
+                );
+            };
 
+
+            return (
+                <div className="h-full flex flex-col">
+                    {/* Modals */}
+                    <CustomModal modal={modal} closeModal={() => setModal(null)} />
+                    <AddSnagModal 
+                        isOpen={isAddSnagModalOpen} 
+                        onClose={() => setIsAddSnagModalOpen(false)}
+                    />
+
+                    {/* Photo Viewer Modal */}
                     {viewingPhoto && (
-                        <div 
-                            className="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50 p-4"
-                            onClick={() => setViewingPhoto(null)}
-                        >
+                        <div className="fixed inset-0 bg-black bg-opacity-90 flex items-center justify-center z-50 p-4" onClick={() => setViewingPhoto(null)}>
                             <div className="relative max-w-4xl max-h-full">
-                                <button
-                                    onClick={() => setViewingPhoto(null)}
-                                    className="absolute -top-10 right-0 p-2 bg-white text-slate-800 rounded-full hover:bg-slate-100 transition"
-                                >
-                                    <X size={24} />
+                                <button onClick={() => setViewingPhoto(null)} className="absolute -top-10 right-0 p-3 bg-white text-slate-800 rounded-full hover:bg-slate-100 transition shadow-lg">
+                                    <X className="w-6 h-6" />
                                 </button>
-                                <img 
-                                    src={viewingPhoto.data} 
-                                    alt="Full size"
-                                    className="max-w-full max-h-[90vh] object-contain rounded-lg"
-                                />
+                                <img src={viewingPhoto.data} alt={`Item photo: ${viewingPhoto.text.substring(0, 30)}...`} className="max-w-full max-h-[90vh] object-contain rounded-lg shadow-xl" />
+                                <div className="mt-3 px-3 py-1 bg-black bg-opacity-50 text-white text-sm text-center rounded-lg max-w-full overflow-hidden text-ellipsis whitespace-nowrap">
+                                    {viewingPhoto.text}
+                                </div>
                             </div>
                         </div>
                     )}
+
+                    {/* Header: Clean, White, Simple */}
+                    <header className="flex-shrink-0 bg-white border-b border-slate-200 shadow-sm">
+                        <div className="max-w-full mx-auto px-4 py-3 flex justify-between items-center">
+                            <h1 className="text-2xl font-extrabold text-slate-800">🛠️ Project Tracker</h1>
+                            <div className="flex items-center space-x-3">
+                                {/* Prominent, clean 'Add New Item' button */}
+                                <button
+                                    onClick={handleAddItemClick}
+                                    className="p-3 bg-accent text-white rounded-full font-bold hover:bg-green-600 transition shadow-lg flex items-center"
+                                    title="Add New Project Item"
+                                >
+                                    <Plus className="w-5 h-5" /> 
+                                </button>
+                            </div>
+                        </div>
+                    </header>
+
+                    {/* Main Content (3 Vertical Panels) */}
+                    <div className="main-content bg-gray-50 flex-grow">
+
+                        {/* Panel 1 (Left): Projects List (Top Level Categories) */}
+                        <div 
+                            className={`panel ${!isDesktop && activePanel !== 'projects' ? 'hidden-right' : 'active-panel'}`}
+                        >
+                            <div className="p-4 border-b border-slate-200 bg-slate-50 flex justify-between items-center flex-shrink-0">
+                                <h2 className="text-base font-bold text-slate-800 flex items-center">
+                                    <LayoutGrid className="w-4 h-4 mr-2 text-primary" /> Projects
+                                </h2>
+                                {/* +Project button is here, managing structure */}
+                                <button
+                                    onClick={() => structureAction('project', 'add', '')}
+                                    className="px-3 py-1 text-white rounded-xl text-sm font-semibold transition shadow-sm bg-primary hover:bg-blue-900"
+                                    title="Add New Project"
+                                >
+                                    + Project
+                                </button>
+                            </div>
+                            
+                            <ul className="panel-list-wrapper py-2">
+                                {allProjects.length === 0 ? (
+                                    <p className="p-4 text-center text-sm text-slate-500">No projects defined. Click "+ Project" to begin.</p>
+                                ) : (
+                                    allProjects.map((proj) => {
+                                        const isActive = proj === selectedProject;
+                                        // Count needs to be based on ALL snags since we're in the project view
+                                        const count = snags.filter(s => (s.header_category || 'Uncategorized') === proj).length;
+                                        
+                                        return (
+                                            <li 
+                                                key={proj} 
+                                                onClick={() => handleProjectSelect(proj)}
+                                                className={`flex justify-between items-center p-3 cursor-pointer transition ${isActive ? 'bg-primary/10 text-primary font-bold border-l-4 border-primary' : 'hover:bg-slate-100 text-slate-700 font-medium'}`}
+                                            >
+                                                <div className="flex-grow truncate pr-2">{proj}</div>
+                                                <div className="flex items-center space-x-2">
+                                                    <Edit 
+                                                        className="w-4 h-4 text-slate-500 hover:text-primary transition" 
+                                                        onClick={(e) => { e.stopPropagation(); structureAction('project', 'edit', proj); }} 
+                                                        title="Rename Project"
+                                                    />
+                                                    <Trash 
+                                                        className="w-4 h-4 text-red-400 hover:text-red-600 transition" 
+                                                        onClick={(e) => { e.stopPropagation(); structureAction('project', 'delete', proj); }}
+                                                        title="Delete Project"
+                                                    />
+                                                    <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${isActive ? 'bg-primary text-white' : 'bg-slate-300 text-slate-700'}`}>
+                                                        {count}
+                                                    </span>
+                                                </div>
+                                            </li>
+                                        );
+                                    })
+                                )}
+                            </ul>
+                            
+                             {/* Status Indicator and Version (Fixed at bottom of Projects Panel) */}
+                            <div className="groups-footer flex flex-col flex-shrink-0 p-3 border-t border-slate-200 bg-white">
+                                <div className="flex items-center mb-1">
+                                    <span className={`w-2 h-2 rounded-full mr-2 ${supabaseClient ? 'bg-green-500' : 'bg-red-500'}`}></span>
+                                    <span className="text-xs text-slate-600 truncate">{status}</span>
+                                </div>
+                                <span className="text-[10px] text-slate-400 font-medium text-right">App Version: {APP_VERSION}</span>
+                            </div>
+                        </div>
+
+                        {/* Panel 2 (Middle): Rooms List (Subcategories) - STATICALLY RENAMED TO ROOMS */}
+                        <div 
+                            className={`panel subcategory-panel lg:border-r bg-white ${isDesktop ? '' : (activePanel === 'groups' ? 'active-panel' : 'hidden-right')}`}
+                        >
+                            <div className="p-4 border-b border-slate-200 bg-slate-50 flex items-center justify-between flex-shrink-0">
+                                <div className="flex items-center">
+                                    {!isDesktop && (
+                                        <button onClick={() => navigateBack('groups')} className="mr-2 p-1 text-slate-600 hover:text-slate-800 rounded-full bg-slate-100"><ArrowLeft className="w-5 h-5" /></button>
+                                    )}
+                                    <h2 className="text-base font-bold text-slate-800 flex items-center">
+                                        <LayoutGrid className="w-4 h-4 mr-2 text-accent" /> Rooms in <span className="ml-1 text-primary truncate">{selectedProject || 'N/A'}</span>
+                                    </h2>
+                                </div>
+                                <button
+                                    // action is still 'group' but the displayed name is 'Room'
+                                    onClick={() => selectedProject && structureAction('group', 'add', '', selectedProject)}
+                                    className={`px-3 py-1 text-white rounded-xl text-sm font-semibold transition shadow-sm ${selectedProject ? 'bg-accent hover:bg-green-600' : 'bg-gray-400 cursor-not-allowed'}`}
+                                    title={selectedProject ? "Add New Room" : "Select a Project first"}
+                                    disabled={!selectedProject}
+                                >
+                                    + Add Room
+                                </button>
+                            </div>
+                            
+                            {/* Scrollable List of Groups/Rooms */}
+                            <ul className="panel-list-wrapper py-2">
+                                {availableGroups.length === 0 ? (
+                                    <p className="p-4 text-center text-sm text-slate-500">No rooms found. Click "+ Add Room".</p>
+                                ) : (
+                                    availableGroups.map((group) => {
+                                        const isActive = group === selectedGroup;
+                                        
+                                        // Count is based on items filtered by the currently selected project AND the current group/room
+                                        const count = snags.filter(s => (s.header_category === selectedProject) && (s.room_name === group)).length;
+
+                                        return (
+                                            <li 
+                                                key={group} 
+                                                onClick={() => handleGroupSelect(group)}
+                                                className={`flex justify-between items-center p-3 cursor-pointer transition ${isActive ? 'bg-accent/10 text-accent font-bold border-l-4 border-accent' : 'hover:bg-slate-100 text-slate-700 font-medium'}`}
+                                            >
+                                                <div className="flex-grow truncate pr-2">{group}</div>
+                                                <div className="flex items-center space-x-2">
+                                                    <Edit 
+                                                        className="w-4 h-4 text-slate-500 hover:text-accent transition" 
+                                                        onClick={(e) => { e.stopPropagation(); structureAction('group', 'edit', group, selectedProject); }}
+                                                        title="Rename Room"
+                                                    />
+                                                    <Trash 
+                                                        className="w-4 h-4 text-red-400 hover:text-red-600 transition" 
+                                                        onClick={(e) => { e.stopPropagation(); structureAction('group', 'delete', group, selectedProject); }}
+                                                        title="Delete Room"
+                                                    />
+                                                    <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${isActive ? 'bg-accent text-white' : 'bg-slate-300 text-slate-700'}`}>
+                                                        {count}
+                                                    </span>
+                                                </div>
+                                            </li>
+                                        );
+                                    })
+                                )}
+                            </ul>
+                        </div>
+                        
+                        {/* Panel 3 (Right): Project Items List / Detail View */}
+                        <div 
+                            className={`panel items-panel bg-gray-100 p-4 lg:p-6 lg:border-r-0 overflow-y-auto ${isDesktop ? '' : (activePanel === 'items' ? 'active-panel' : 'hidden-right')}`}
+                        >
+                            <h2 className="text-xl font-bold text-slate-800 mb-4 flex items-center flex-shrink-0">
+                                {!isDesktop && (
+                                    <button onClick={() => navigateBack('items')} className="mr-2 p-1 text-slate-600 hover:text-slate-800 rounded-full bg-white shadow-md flex-shrink-0"><ArrowLeft className="w-5 h-5" /></button>
+                                )}
+                                <Tag className="w-5 h-5 mr-2 text-primary flex-shrink-0" />
+                                <span className="text-primary mr-1 truncate text-lg flex-shrink-0">{selectedProject || 'Select Project'}</span> 
+                                <span className="text-slate-500 mr-3 truncate text-lg flex-shrink-0"> / {selectedGroup || 'Select Room'}</span>
+                                
+                                <span className="ml-auto text-base font-bold bg-primary text-white px-3 py-1 rounded-full shadow-sm flex-shrink-0">
+                                    {filteredSnags.filter(s => s.status === 'open').length} Open
+                                </span>
+                            </h2>
+                            
+                            {/* Project Items List */}
+                            <div className="space-y-4">
+                                {(!selectedProject || !selectedGroup) && (
+                                    <div className="text-slate-500 p-6 bg-white rounded-xl shadow-lg text-center">
+                                        <p className="font-semibold">Please select a Project and a Room to view items.</p>
+                                    </div>
+                                )}
+                                {filteredSnags.length === 0 && selectedProject && selectedGroup && (
+                                    <div className="text-slate-500 p-6 bg-white rounded-xl shadow-lg text-center">
+                                        <Tag className="w-8 h-8 mx-auto mb-3 text-status-open" />
+                                        <p className="font-semibold">No items found in this view.</p>
+                                        <p className="text-sm">Click the **Add Item** button in the header to create one for **{selectedProject} / {selectedGroup}**.</p>
+                                    </div>
+                                )}
+                                {filteredSnags.map(snag => <SnagItem key={snag.id} snag={snag} />)}
+                            </div>
+                        </div>
+                    </div>
                 </div>
             );
         }
-
-        ReactDOM.render(<LodgeSnagTracker />, document.getElementById('root'));
+        
+        ReactDOM.render(<Tracker />, document.getElementById('root'));
     </script>
 </body>
 </html>
