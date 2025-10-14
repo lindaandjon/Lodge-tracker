@@ -15,7 +15,7 @@
     <div id="root"></div>
     <script type="text/babel">
         const { useState, useEffect } = React;
-		const APP_VERSION = '2.93';
+		const APP_VERSION = '2.94';
         const CLIENT_ID = '143126622947-aua7tmjl6rf5fq4i4ggijrvvbe8ut9ck.apps.googleusercontent.com';
         const API_KEY = 'AIzaSyA9Z_fZB1Sv5mUPmToeRQdkgUPxHu6U3q4';
         const SCOPES = 'https://www.googleapis.com/auth/drive.file';
@@ -65,7 +65,7 @@
                     window.gapi.load('client', async () => {
                         try {
                             setGapiReady(true);
-const savedToken = localStorage.getItem('gapi_access_token');
+let savedToken = localStorage.getItem('gapi_access_token');
 if (savedToken) {
   setAccessToken(savedToken);
   setIsSignedIn(true);
